@@ -90,6 +90,7 @@ export default function CalendarPage({ onOpenClient }) {
   const todayStr = toDateStr(now.getFullYear(), now.getMonth(), now.getDate())
 
   const selectedTasks = tasksByDate[selectedDate] || []
+  const noDateTasks   = tasks.filter(t => !t.dueDate && t.showInAgenda !== false && !t.repeatMonthly)
 
   async function handleQuickAdd(e) {
     e.preventDefault()
@@ -225,26 +226,27 @@ export default function CalendarPage({ onOpenClient }) {
         </div>
 
         {/* Side Panel */}
-        <div className="w-72 flex-shrink-0 flex flex-col gap-4 overflow-y-auto scrollbar-thin">
+        <div className="w-64 flex-shrink-0 flex flex-col gap-3 overflow-y-auto scrollbar-thin">
+
           {/* Selected date header */}
-          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-            <p className="text-xs text-gray-500 mb-0.5">Selecionado</p>
-            <p className="text-sm font-semibold text-gray-200 capitalize">{formatFull(selectedDate)}</p>
+          <div className="bg-gray-800 rounded-xl px-3 py-2.5 border border-gray-700">
+            <p className="text-[10px] text-gray-500 mb-0.5">Selecionado</p>
+            <p className="text-xs font-semibold text-gray-200 capitalize">{formatFull(selectedDate)}</p>
           </div>
 
           {/* Quick add form */}
-          <div className="bg-gray-800/60 rounded-xl p-4 border border-gray-700">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+          <div className="bg-gray-800/60 rounded-xl p-3 border border-gray-700">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
               Adicionar tarefa
             </p>
-            <form onSubmit={handleQuickAdd} className="space-y-2">
+            <form onSubmit={handleQuickAdd} className="space-y-1.5">
               <input
                 value={quickTitle}
                 onChange={e => setQuickTitle(e.target.value)}
-                placeholder="Título da tarefa *"
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-amber-500/50"
+                placeholder="Título *"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none focus:border-amber-500/50"
               />
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 <input
                   type="time"
                   value={quickTime}
@@ -256,7 +258,7 @@ export default function CalendarPage({ onOpenClient }) {
                   onChange={e => setQuickPriority(e.target.value)}
                   className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-400 focus:outline-none focus:border-amber-500/50"
                 >
-                  <option value="nenhuma">Sem prioridade</option>
+                  <option value="nenhuma">Sem prior.</option>
                   <option value="baixa">Baixa</option>
                   <option value="media">Média</option>
                   <option value="alta">Alta</option>
@@ -265,7 +267,7 @@ export default function CalendarPage({ onOpenClient }) {
               <select
                 value={quickClient}
                 onChange={e => setQuickClient(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-gray-400 focus:outline-none focus:border-amber-500/50"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-gray-400 focus:outline-none focus:border-amber-500/50"
               >
                 <option value="">Sem cliente</option>
                 {clients.map(c => (
@@ -273,14 +275,14 @@ export default function CalendarPage({ onOpenClient }) {
                 ))}
               </select>
               {quickError && (
-                <p className="text-[10px] text-red-400 bg-red-950/40 border border-red-500/30 rounded-lg px-2 py-1.5">{quickError}</p>
+                <p className="text-[10px] text-red-400 bg-red-950/40 border border-red-500/30 rounded px-2 py-1">{quickError}</p>
               )}
               <button
                 type="submit"
                 disabled={quickSaving}
-                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-gray-900 text-xs font-semibold transition-all"
+                className="w-full flex items-center justify-center gap-1 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-gray-900 text-xs font-semibold transition-all"
               >
-                <Plus size={13} />
+                <Plus size={12} />
                 {quickSaving ? 'Salvando…' : 'Adicionar'}
               </button>
             </form>
@@ -288,50 +290,49 @@ export default function CalendarPage({ onOpenClient }) {
 
           {/* Tasks for selected date */}
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 px-1">
               Tarefas do dia ({selectedTasks.length})
             </p>
             {selectedTasks.length === 0 ? (
-              <div className="text-center py-6 text-gray-600">
-                <Calendar size={22} className="mx-auto mb-2 opacity-30" />
+              <div className="text-center py-4 text-gray-600">
                 <p className="text-xs">Nenhuma tarefa neste dia.</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {selectedTasks.map(task => {
                   const c = clientMap[task.clientId]
                   const isDone = task.status === 'concluida'
                   return (
                     <div
                       key={task.id}
-                      className={`p-3 rounded-xl border transition-all ${
+                      className={`px-2.5 py-2 rounded-lg border transition-all ${
                         isDone ? 'bg-gray-800/30 border-gray-700/30' : 'bg-gray-800/60 border-gray-700/50'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start justify-between gap-1.5">
                         <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-medium mb-1 ${isDone ? 'line-through text-gray-500' : 'text-gray-200'}`}>
+                          <p className={`text-xs font-medium truncate ${isDone ? 'line-through text-gray-500' : 'text-gray-200'}`}>
                             {task.title}
                           </p>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${PRIORITY_STYLE[task.priority]}`}>
+                          <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                            <span className={`text-[10px] px-1 py-px rounded border font-medium ${PRIORITY_STYLE[task.priority]}`}>
                               {PRIORITY_LABEL[task.priority]}
                             </span>
-                            <span className="text-[10px] text-gray-500">
-                              {task.time ? `🕐 ${task.time}` : 'Dia todo'}
-                            </span>
+                            {task.time && (
+                              <span className="text-[10px] text-gray-500">{task.time}</span>
+                            )}
                             {c && (
                               <button
                                 onClick={() => onOpenClient?.(c)}
-                                className="flex items-center gap-1 text-[10px] text-gray-600 hover:text-amber-400 transition-colors"
+                                className="flex items-center gap-0.5 text-[10px] text-gray-600 hover:text-amber-400 transition-colors min-w-0"
                               >
-                                <Building2 size={9} />
-                                <span className="truncate max-w-[100px]">{c.name}</span>
+                                <Building2 size={8} className="flex-shrink-0" />
+                                <span className="truncate max-w-[70px]">{c.name}</span>
                               </button>
                             )}
                           </div>
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex gap-0.5 flex-shrink-0">
                           <button
                             onClick={() => updateTask(task.id, { status: isDone ? 'pendente' : 'concluida' })}
                             className={`text-xs p-1 rounded transition-colors ${isDone ? 'text-emerald-400 hover:text-gray-400' : 'text-gray-600 hover:text-emerald-400'}`}
@@ -352,6 +353,68 @@ export default function CalendarPage({ onOpenClient }) {
               </div>
             )}
           </div>
+
+          {/* Tasks without date */}
+          <div className="border-t border-gray-800 pt-3">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 px-1">
+              Sem data ({noDateTasks.length})
+            </p>
+            {noDateTasks.length === 0 ? (
+              <p className="text-xs text-gray-600 px-1">Nenhuma tarefa sem data.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {noDateTasks.map(task => {
+                  const c = clientMap[task.clientId]
+                  const isDone = task.status === 'concluida'
+                  return (
+                    <div
+                      key={task.id}
+                      className={`px-2.5 py-2 rounded-lg border transition-all ${
+                        isDone ? 'bg-gray-800/20 border-gray-700/20' : 'bg-gray-800/50 border-gray-700/40'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-1.5">
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-medium truncate ${isDone ? 'line-through text-gray-500' : 'text-gray-300'}`}>
+                            {task.title}
+                          </p>
+                          <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                            <span className={`text-[10px] px-1 py-px rounded border font-medium ${PRIORITY_STYLE[task.priority]}`}>
+                              {PRIORITY_LABEL[task.priority]}
+                            </span>
+                            {c && (
+                              <button
+                                onClick={() => onOpenClient?.(c)}
+                                className="flex items-center gap-0.5 text-[10px] text-gray-600 hover:text-amber-400 transition-colors min-w-0"
+                              >
+                                <Building2 size={8} className="flex-shrink-0" />
+                                <span className="truncate max-w-[70px]">{c.name}</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-0.5 flex-shrink-0">
+                          <button
+                            onClick={() => updateTask(task.id, { status: isDone ? 'pendente' : 'concluida' })}
+                            className={`text-xs p-1 rounded transition-colors ${isDone ? 'text-emerald-400 hover:text-gray-400' : 'text-gray-600 hover:text-emerald-400'}`}
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={() => deleteTask(task.id)}
+                            className="text-xs p-1 rounded text-gray-700 hover:text-red-400 transition-colors"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
     </div>
