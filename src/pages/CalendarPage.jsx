@@ -200,7 +200,7 @@ export default function CalendarPage({ onOpenClient }) {
                       {dayTasks.map(t => (
                         <span
                           key={t.id}
-                          className={`block w-full text-[10px] font-medium px-1.5 py-0.5 rounded leading-tight ${
+                          className={`flex items-center gap-1 w-full min-w-0 text-[10px] font-medium px-1.5 py-0.5 rounded leading-tight ${
                             t.status === 'concluida'
                               ? 'bg-emerald-500/15 text-emerald-400/70 line-through'
                               : t.priority === 'alta'
@@ -212,8 +212,8 @@ export default function CalendarPage({ onOpenClient }) {
                               : 'bg-gray-700/40 text-gray-500'
                           }`}
                         >
-                          {t.time && <span className="opacity-70 mr-1">{t.time}</span>}
-                          <span className="truncate">{t.title}</span>
+                          {t.time && <span className="opacity-70 flex-shrink-0">{t.time}</span>}
+                          <span className="truncate min-w-0">{t.title}</span>
                         </span>
                       ))}
                     </div>
