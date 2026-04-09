@@ -1,0 +1,719 @@
+import { useState } from 'react'
+import {
+  X, User, Clock, FileText, AlertTriangle,
+  Plus, BarChart3, Users, CalendarDays, Briefcase, Activity,
+  History, Pencil, Check, ChevronDown, ChevronUp, Repeat,
+} from 'lucide-react'
+import { useTasks } from '../context/TasksContext'
+import { useUsers } from '../context/UsersContext'
+import { useClients } from '../context/ClientsContext'
+import { calcFiscalScore, getApplicableItems } from '../hooks/useFiscalItems'
+import LevelBadge from './LevelBadge'
+import HealthBar from './HealthBar'
+import RichTextEditor from './RichTextEditor'
+import TaskItem, { TemplateCard } from './TaskItem'
+import DatePicker from './DatePicker'
+
+// ── Status labels & colors ─────────────────────────────────────────────────
+
+const FISCAL_LABEL = {
+  sem_consulta:       'Sem Consulta',
+  com_pendencia:      'Com Pendência',
+  comunicado_cliente: 'Comunicado ao Cliente',
+  em_regularizacao:   'Em Regularização',
+  resolvido:          'Resolvido',
+  sem_pendencia:      'Sem Pendência',
+}
+const FISCAL_COLOR = {
+  sem_consulta:       'text-gray-400 bg-gray-500/15 border-gray-500/30',
+  com_pendencia:      'text-red-400 bg-red-500/15 border-red-500/30',
+  comunicado_cliente: 'text-blue-400 bg-blue-500/15 border-blue-500/30',
+  em_regularizacao:   'text-purple-400 bg-purple-500/15 border-purple-500/30',
+  resolvido:          'text-teal-400 bg-teal-500/15 border-teal-500/30',
+  sem_pendencia:      'text-emerald-400 bg-emerald-500/15 border-emerald-500/30',
+}
+const CX_LABEL      = { promotor: 'Promotor', neutro: 'Neutro', risco_churn: 'Risco Churn', detrator: 'Detrator' }
+const CX_COLOR      = { promotor: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30', neutro: 'text-blue-400 bg-blue-500/15 border-blue-500/30', risco_churn: 'text-orange-400 bg-orange-500/15 border-orange-500/30', detrator: 'text-red-400 bg-red-500/15 border-red-500/30' }
+const MONTHLY_LABEL = { pendente: 'Pendente', processando: 'Processando', concluido: 'Concluído', atrasado: 'Atrasado' }
+const MONTHLY_COLOR = { pendente: 'text-gray-400 bg-gray-700/40 border-gray-600/40', processando: 'text-blue-400 bg-blue-500/15 border-blue-500/30', concluido: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30', atrasado: 'text-red-400 bg-red-500/15 border-red-500/30' }
+
+const TAX_COLOR = {
+  INSS:        'bg-red-500/20 text-red-300 border-red-500/30',
+  FGTS:        'bg-orange-500/20 text-orange-300 border-orange-500/30',
+  DAS:         'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+  IRPJ:        'bg-purple-500/20 text-purple-300 border-purple-500/30',
+  CSLL:        'bg-pink-500/20 text-pink-300 border-pink-500/30',
+  COFINS:      'bg-blue-500/20 text-blue-300 border-blue-500/30',
+  PIS:         'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+  ICMS:        'bg-teal-500/20 text-teal-300 border-teal-500/30',
+  'Simples/IVA':'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+}
+
+function formatDate(s) {
+  if (!s) return '—'
+  return new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+// ── Shared small components ────────────────────────────────────────────────
+
+function StatusBadge({ label, colorClass }) {
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${colorClass}`}>
+      {label}
+    </span>
+  )
+}
+
+function TabBtn({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+        active
+          ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+          : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+// ── Overview Tab ───────────────────────────────────────────────────────────
+
+function OverviewTab({ client }) {
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Status nos Kanbans</p>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { icon: BarChart3,    label: 'Fiscal',   badge: FISCAL_LABEL[client.fiscalStatus],   color: FISCAL_COLOR[client.fiscalStatus] },
+            { icon: Users,        label: 'CX',        badge: CX_LABEL[client.cxStatus],           color: CX_COLOR[client.cxStatus] },
+            { icon: CalendarDays, label: 'Mensal',    badge: MONTHLY_LABEL[client.monthlyStatus], color: MONTHLY_COLOR[client.monthlyStatus] },
+          ].map(({ icon: Icon, label, badge, color }) => (
+            <div key={label} className="bg-gray-800/60 rounded-xl p-3 border border-gray-700/50">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Icon size={13} className="text-gray-500" />
+                <span className="text-xs text-gray-500">{label}</span>
+              </div>
+              <StatusBadge label={badge || '—'} colorClass={color || ''} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Health Score</p>
+        <div className="bg-gray-800/60 rounded-xl p-4 border border-gray-700/50">
+          <HealthBar score={client.healthScore} />
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Detalhes</p>
+        <div className="grid grid-cols-2 gap-3">
+          <InfoCard icon={User}         label="Responsável"        value={client.responsible || '—'} />
+          <InfoCard icon={Clock}        label="Última interação"   value={formatDate(client.lastInteraction)} />
+          <InfoCard icon={Briefcase}    label="Regime"             value={client.regime || '—'} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function InfoCard({ icon: Icon, label, value, valueClass = 'text-gray-200' }) {
+  return (
+    <div className="bg-gray-800/60 rounded-xl p-3 border border-gray-700/50">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Icon size={12} className="text-gray-500" />
+        <span className="text-xs text-gray-500">{label}</span>
+      </div>
+      <p className={`text-sm font-medium ${valueClass}`}>{value}</p>
+    </div>
+  )
+}
+
+// ── Analysis Tab ───────────────────────────────────────────────────────────
+
+function AnalysisTab({ client }) {
+  return (
+    <div className="space-y-5">
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <AlertTriangle size={14} className="text-orange-400" />
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tributos pendentes</p>
+        </div>
+        {client.pendingTaxes?.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {client.pendingTaxes.map(tax => (
+              <span key={tax} className={`px-3 py-1 rounded-lg text-xs font-semibold border ${TAX_COLOR[tax] || 'bg-gray-700 text-gray-300 border-gray-600'}`}>
+                {tax}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-600 italic">Nenhum tributo pendente.</p>
+        )}
+      </div>
+
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <FileText size={14} className="text-gray-400" />
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Observações internas</p>
+        </div>
+        <div className="bg-gray-800/60 rounded-xl p-4 border border-gray-700/50 min-h-[80px]">
+          {client.notes
+            ? <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{client.notes}</p>
+            : <p className="text-sm text-gray-600 italic">Nenhuma observação registrada.</p>}
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Activity size={14} className="text-amber-400" />
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Análise geral</p>
+        </div>
+        <div className="bg-gray-800/60 rounded-xl p-4 border border-gray-700/50 space-y-2">
+          <AnalysisRow label="Situação fiscal"    value={FISCAL_LABEL[client.fiscalStatus]}    colorClass={FISCAL_COLOR[client.fiscalStatus]} />
+          <AnalysisRow label="Relacionamento CX"  value={CX_LABEL[client.cxStatus]}            colorClass={CX_COLOR[client.cxStatus]} />
+          <AnalysisRow label="Entrega mensal"     value={MONTHLY_LABEL[client.monthlyStatus]}  colorClass={MONTHLY_COLOR[client.monthlyStatus]} />
+          <AnalysisRow
+            label="Health Score"
+            value={`${client.healthScore ?? 70}/100`}
+            colorClass={
+              client.healthScore >= 80 ? 'text-emerald-400' :
+              client.healthScore >= 55 ? 'text-yellow-400' :
+              client.healthScore >= 30 ? 'text-orange-400' : 'text-red-400'
+            }
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AnalysisRow({ label, value, colorClass }) {
+  return (
+    <div className="flex items-center justify-between py-1 border-b border-gray-700/40 last:border-0">
+      <span className="text-xs text-gray-500">{label}</span>
+      <span className={`text-xs font-semibold ${colorClass}`}>{value}</span>
+    </div>
+  )
+}
+
+// ── Tasks Tab ──────────────────────────────────────────────────────────────
+
+function TasksTab({ client }) {
+  const { tasks, addTask, updateTask, deleteTask } = useTasks()
+  const { users } = useUsers()
+  const clientTasks = tasks.filter(t => t.clientId === client.id)
+
+  const [title,         setTitle]         = useState('')
+  const [desc,          setDesc]          = useState('')
+  const [dueDate,       setDueDate]       = useState('')
+  const [time,          setTime]          = useState('')
+  const [priority,      setPriority]      = useState('media')
+  const [assigned,      setAssigned]      = useState('')
+  const [showForm,      setShowForm]      = useState(false)
+  const [repeatMonthly, setRepeatMonthly] = useState(false)
+
+  function handleAdd(e) {
+    e.preventDefault()
+    if (!title.trim()) return
+    const isRecurring = repeatMonthly && !!dueDate
+    addTask({
+      clientId:        client.id,
+      title:           title.trim(),
+      description:     desc,
+      dueDate:         isRecurring ? null : (dueDate || null),
+      time:            time || null,
+      priority,
+      assignedTo:      assigned || null,
+      repeatMonthly:   isRecurring,
+      repeatDay:       isRecurring ? parseInt(dueDate.split('-')[2]) : undefined,
+      lastSpawnedMonth: isRecurring ? null : undefined,
+    })
+    setTitle(''); setDesc(''); setDueDate(''); setTime('')
+    setPriority('media'); setAssigned(''); setRepeatMonthly(false); setShowForm(false)
+  }
+
+  function handleToggle(task) {
+    updateTask(task.id, { status: task.status === 'concluida' ? 'pendente' : 'concluida' })
+  }
+
+  const templateTasks = clientTasks.filter(t => t.repeatMonthly)
+  const regularTasks  = clientTasks.filter(t => !t.repeatMonthly)
+  const pending       = regularTasks.filter(t => t.status !== 'concluida')
+  const done          = regularTasks.filter(t => t.status === 'concluida')
+
+  return (
+    <div className="space-y-3">
+      {/* Add button / form */}
+      {!showForm ? (
+        <button
+          onClick={() => setShowForm(true)}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-gray-600 text-gray-500 hover:text-amber-400 hover:border-amber-500/40 hover:bg-amber-500/5 transition-all text-sm"
+        >
+          <Plus size={15} /> Nova tarefa
+        </button>
+      ) : (
+        <form onSubmit={handleAdd} className="bg-gray-800/80 rounded-xl p-4 border border-amber-500/30 space-y-3">
+          <input
+            autoFocus
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Título da tarefa *"
+            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-amber-500/50"
+          />
+          <RichTextEditor value={desc} onChange={setDesc} placeholder="Descrição com formatação (opcional)" minHeight={70} />
+          <div className="grid grid-cols-2 gap-2">
+            <DatePicker
+              value={dueDate}
+              onChange={setDueDate}
+              placeholder="Selecionar data"
+            />
+            <input
+              type="time"
+              value={time}
+              onChange={e => setTime(e.target.value)}
+              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-amber-500/50"
+            />
+            <select
+              value={priority}
+              onChange={e => setPriority(e.target.value)}
+              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-amber-500/50"
+            >
+              <option value="nenhuma">Sem prioridade</option>
+              <option value="baixa">Baixa</option>
+              <option value="media">Média</option>
+              <option value="alta">Alta</option>
+            </select>
+            {users.length > 0 && (
+              <select
+                value={assigned}
+                onChange={e => setAssigned(e.target.value)}
+                className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-amber-500/50"
+              >
+                <option value="">Responsável</option>
+                {users.map(u => <option key={u.id} value={u.id}>{u.name.split(' ')[0]}</option>)}
+              </select>
+            )}
+          </div>
+
+          {/* Repeat monthly toggle */}
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <div
+              onClick={() => setRepeatMonthly(v => !v)}
+              className={`w-8 h-4 rounded-full transition-colors flex-shrink-0 relative ${repeatMonthly ? 'bg-purple-500' : 'bg-gray-700'}`}
+            >
+              <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${repeatMonthly ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Repeat size={12} className={repeatMonthly ? 'text-purple-400' : 'text-gray-600'} />
+              <span className={`text-xs ${repeatMonthly ? 'text-purple-300' : 'text-gray-600'}`}>
+                {repeatMonthly
+                  ? dueDate
+                    ? `Repete todo mês no dia ${parseInt(dueDate.split('-')[2])}`
+                    : 'Repetir todo mês · selecione uma data acima'
+                  : 'Repetir todo mês'}
+              </span>
+            </div>
+          </label>
+
+          <div className="flex gap-2">
+            <button type="submit" className="flex-1 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-gray-900 text-sm font-semibold transition-all">
+              Adicionar
+            </button>
+            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg border border-gray-700 text-gray-400 hover:text-gray-200 text-sm transition-all">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Pending */}
+      {pending.length > 0 && (
+        <div className="space-y-2">
+          {pending.map(task => (
+            <TaskItem
+              key={task.id}
+              task={task}
+              users={users}
+              onToggle={handleToggle}
+              onUpdate={updateTask}
+              onDelete={deleteTask}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Done */}
+      {done.length > 0 && (
+        <div>
+          <p className="text-xs text-gray-600 mb-2 mt-1">Concluídas ({done.length})</p>
+          <div className="space-y-2">
+            {done.map(task => (
+              <TaskItem
+                key={task.id}
+                task={task}
+                users={users}
+                onToggle={handleToggle}
+                onUpdate={updateTask}
+                onDelete={deleteTask}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recurring templates for this client */}
+      {templateTasks.length > 0 && (
+        <div className={regularTasks.length > 0 ? 'pt-3 border-t border-gray-800' : ''}>
+          <div className="flex items-center gap-2 mb-2">
+            <Repeat size={12} className="text-purple-400" />
+            <span className="text-xs font-medium text-gray-600">Recorrentes</span>
+          </div>
+          <div className="space-y-2">
+            {templateTasks.map(task => (
+              <TemplateCard
+                key={task.id}
+                task={task}
+                users={users}
+                onUpdate={updateTask}
+                onDelete={deleteTask}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {clientTasks.length === 0 && !showForm && (
+        <div className="text-center py-10 text-gray-600">
+          <p className="text-sm">Nenhuma tarefa ainda.</p>
+          <p className="text-xs mt-1">Clique em "Nova tarefa" para começar.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Fiscal History Tab ─────────────────────────────────────────────────────
+
+const TAX_CHIP = {
+  INSS:        'bg-red-500/20 text-red-300 border-red-500/30',
+  FGTS:        'bg-orange-500/20 text-orange-300 border-orange-500/30',
+  DAS:         'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+  IRPJ:        'bg-purple-500/20 text-purple-300 border-purple-500/30',
+  CSLL:        'bg-pink-500/20 text-pink-300 border-pink-500/30',
+  COFINS:      'bg-blue-500/20 text-blue-300 border-blue-500/30',
+  PIS:         'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+  ICMS:        'bg-teal-500/20 text-teal-300 border-teal-500/30',
+  'Simples/IVA':'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+}
+
+function formatMonth(m) {
+  const [year, month] = m.split('-')
+  const label = new Date(Number(year), Number(month) - 1, 1)
+    .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
+function CheckChip({ label, state, onClick }) {
+  const styles = {
+    ok:       'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
+    pendente: 'bg-red-500/15 text-red-300 border-red-500/40',
+    null:     'bg-gray-700/40 text-gray-600 border-gray-700/50',
+  }
+  const icons = { ok: '✓', pendente: '✗', null: '—' }
+  const s = state ?? 'null'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Clique para alternar: não consultado → OK → Pendente"
+      className={`text-[10px] px-2 py-0.5 rounded-lg border font-medium transition-all hover:opacity-80 ${styles[s]}`}
+    >
+      {icons[s]} {label}
+    </button>
+  )
+}
+
+function FiscalScoreBar({ score }) {
+  if (score === null) return null
+  const textColor =
+    score >= 80 ? 'text-emerald-400' :
+    score >= 55 ? 'text-yellow-300' :
+    score >= 30 ? 'text-orange-400' : 'text-red-400'
+  const barColor =
+    score >= 80 ? 'bg-emerald-500' :
+    score >= 55 ? 'bg-yellow-400' :
+    score >= 30 ? 'bg-orange-500' : 'bg-red-600'
+  return (
+    <div className="flex items-center gap-2 mt-2">
+      <span className="text-[10px] text-gray-600 flex-shrink-0">Score Fiscal</span>
+      <div className="flex-1 h-1 bg-gray-700 rounded-full overflow-hidden">
+        <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${score}%` }} />
+      </div>
+      <span className={`text-[10px] font-bold ${textColor} flex-shrink-0`}>{score}/100</span>
+    </div>
+  )
+}
+
+function FiscalHistoryTab({ client }) {
+  const { updateClient } = useClients()
+  const applicableItems  = getApplicableItems(client)
+  const currentMonth           = new Date().toISOString().slice(0, 7)
+  const history                = client.fiscalHistory ?? []
+  const hasCurrentMonth        = history.some(h => h.month === currentMonth)
+
+  const [editingNote, setEditingNote] = useState(null)
+  const [noteValue,   setNoteValue]   = useState('')
+  const [expanded,    setExpanded]    = useState({})
+
+  function registerCurrentMonth() {
+    const existing = history.find(h => h.month === currentMonth)
+    const snapshot = {
+      month:        currentMonth,
+      status:       client.fiscalStatus,
+      pendingTaxes: client.pendingTaxes ?? [],
+      note:         existing?.note ?? '',
+      checks:       existing?.checks ?? {},
+    }
+    const updated = existing
+      ? history.map(h => h.month === currentMonth ? snapshot : h)
+      : [snapshot, ...history]
+    updateClient(client.id, { fiscalHistory: updated })
+  }
+
+  function toggleCheck(entry, itemId) {
+    const checks  = { ...(entry.checks ?? {}) }
+    const current = checks[itemId] ?? null
+    checks[itemId] = current === null ? 'ok' : current === 'ok' ? 'pendente' : null
+    const updated = history.map(h =>
+      h.month === entry.month ? { ...h, checks } : h
+    )
+    updateClient(client.id, { fiscalHistory: updated })
+  }
+
+  function saveNote(entry) {
+    const updated = history.map(h =>
+      h.month === entry.month ? { ...h, note: noteValue } : h
+    )
+    updateClient(client.id, { fiscalHistory: updated })
+    setEditingNote(null)
+  }
+
+  function toggleExpand(month) {
+    setExpanded(prev => ({ ...prev, [month]: !prev[month] }))
+  }
+
+  if (history.length === 0) {
+    return (
+      <div className="space-y-4">
+        <button
+          onClick={registerCurrentMonth}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-amber-500/40 text-amber-400 hover:bg-amber-500/5 transition-all text-sm font-medium"
+        >
+          <History size={15} /> Registrar mês atual
+        </button>
+        <div className="text-center py-10 text-gray-600">
+          <History size={28} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">Nenhum histórico ainda.</p>
+          <p className="text-xs mt-1">Mova o card no Kanban ou clique em "Registrar mês atual".</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {!hasCurrentMonth && (
+        <button
+          onClick={registerCurrentMonth}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-amber-500/40 text-amber-400 hover:bg-amber-500/5 transition-all text-sm font-medium"
+        >
+          <History size={15} /> Registrar mês atual
+        </button>
+      )}
+
+      <div className="relative">
+        <div className="absolute left-[11px] top-3 bottom-3 w-px bg-gray-700/60" />
+
+        <div className="space-y-3">
+          {history.map((entry) => {
+            const isCurrentMonth = entry.month === currentMonth
+            const isExpanded     = expanded[entry.month] ?? isCurrentMonth
+            const isEditingThis  = editingNote === entry.month
+            const score          = applicableItems.length > 0
+              ? calcFiscalScore(entry.checks ?? {}, applicableItems)
+              : null
+
+            return (
+              <div key={entry.month} className="relative pl-7">
+                {/* timeline dot */}
+                <div className={`absolute left-0 top-3.5 w-[9px] h-[9px] rounded-full border-2 ${
+                  isCurrentMonth ? 'bg-amber-400 border-amber-400' : 'bg-gray-700 border-gray-600'
+                }`} />
+
+                <div className={`rounded-xl border p-3 transition-all ${
+                  isCurrentMonth ? 'border-amber-500/30 bg-amber-950/10' : 'border-gray-700/50 bg-gray-800/40'
+                }`}>
+                  {/* Header row */}
+                  <div
+                    className="flex items-center justify-between gap-2 cursor-pointer"
+                    onClick={() => toggleExpand(entry.month)}
+                  >
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <span className={`text-xs font-semibold ${isCurrentMonth ? 'text-amber-300' : 'text-gray-400'}`}>
+                        {formatMonth(entry.month)}
+                        {isCurrentMonth && <span className="ml-1.5 text-[10px] text-amber-500/70 font-normal">• atual</span>}
+                      </span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${FISCAL_COLOR[entry.status] ?? 'text-gray-400 bg-gray-700/40 border-gray-600'}`}>
+                        {FISCAL_LABEL[entry.status] ?? entry.status}
+                      </span>
+                      {score !== null && (
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                          score >= 80 ? 'text-emerald-400 bg-emerald-500/10' :
+                          score >= 55 ? 'text-yellow-300 bg-yellow-500/10' :
+                          score >= 30 ? 'text-orange-400 bg-orange-500/10' : 'text-red-400 bg-red-500/10'
+                        }`}>
+                          {score}/100
+                        </span>
+                      )}
+                    </div>
+                    {isExpanded
+                      ? <ChevronUp size={13} className="text-gray-600 flex-shrink-0" />
+                      : <ChevronDown size={13} className="text-gray-600 flex-shrink-0" />
+                    }
+                  </div>
+
+                  {/* Expanded */}
+                  {isExpanded && (
+                    <div className="mt-3 space-y-3">
+                      {/* Score bar */}
+                      {applicableItems.length > 0 && <FiscalScoreBar score={score} />}
+
+                      {/* Checks grid */}
+                      {applicableItems.length > 0 && (
+                        <div>
+                          <p className="text-[10px] text-gray-600 mb-1.5 font-medium uppercase tracking-wide">Consultas</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {applicableItems.map(item => (
+                              <CheckChip
+                                key={item.id}
+                                label={item.label}
+                                state={entry.checks?.[item.id] ?? null}
+                                onClick={() => toggleCheck(entry, item.id)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Note */}
+                      <div>
+                        <p className="text-[10px] text-gray-600 mb-1 font-medium uppercase tracking-wide">Observação</p>
+                        {isEditingThis ? (
+                          <div className="flex gap-2 items-start">
+                            <textarea
+                              autoFocus
+                              value={noteValue}
+                              onChange={e => setNoteValue(e.target.value)}
+                              rows={2}
+                              placeholder="Observação sobre este mês..."
+                              className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:border-amber-500/50 resize-none"
+                            />
+                            <button
+                              onClick={() => saveNote(entry)}
+                              className="flex-shrink-0 p-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-gray-900 transition-all"
+                            >
+                              <Check size={12} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            className="flex items-start gap-2 cursor-pointer group"
+                            onClick={() => { setEditingNote(entry.month); setNoteValue(entry.note ?? '') }}
+                          >
+                            <p className={`flex-1 text-xs leading-relaxed ${entry.note ? 'text-gray-400' : 'text-gray-600 italic'}`}>
+                              {entry.note || 'Clique para adicionar uma observação...'}
+                            </p>
+                            <Pencil size={11} className="flex-shrink-0 text-gray-700 group-hover:text-gray-400 mt-0.5 transition-colors" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Modal ─────────────────────────────────────────────────────────────
+
+export default function ClientDetailModal({ client, onClose }) {
+  const [tab, setTab] = useState('overview')
+  const { tasks } = useTasks()
+
+  if (!client) return null
+
+  const pendingCount = tasks.filter(t => t.clientId === client.id && t.status !== 'concluida').length
+  const historyCount = (client.fiscalHistory ?? []).length
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-gray-900 rounded-2xl border border-gray-700 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="px-6 pt-5 pb-4 border-b border-gray-800 flex-shrink-0">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                <LevelBadge level={client.level} />
+                <span className="text-xs text-gray-500">{client.cnpj}</span>
+              </div>
+              <h2 className="text-lg font-bold text-white leading-tight">{client.name}</h2>
+            </div>
+            <button onClick={onClose} className="flex-shrink-0 text-gray-500 hover:text-gray-200 transition-colors p-1 rounded-lg hover:bg-gray-800">
+              <X size={20} />
+            </button>
+          </div>
+          <div className="flex gap-1 mt-4 flex-wrap">
+            <TabBtn active={tab === 'overview'} onClick={() => setTab('overview')}>Visão Geral</TabBtn>
+            <TabBtn active={tab === 'analysis'} onClick={() => setTab('analysis')}>Análise</TabBtn>
+            <TabBtn active={tab === 'history'}  onClick={() => setTab('history')}>
+              Histórico Fiscal{historyCount > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-700 text-gray-400 text-[10px] font-bold">
+                  {historyCount}
+                </span>
+              )}
+            </TabBtn>
+            <TabBtn active={tab === 'tasks'}    onClick={() => setTab('tasks')}>
+              Tarefas{pendingCount > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500 text-gray-900 text-[10px] font-bold">
+                  {pendingCount}
+                </span>
+              )}
+            </TabBtn>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5">
+          {tab === 'overview' && <OverviewTab       client={client} />}
+          {tab === 'analysis' && <AnalysisTab      client={client} />}
+          {tab === 'history'  && <FiscalHistoryTab client={client} />}
+          {tab === 'tasks'    && <TasksTab         client={client} />}
+        </div>
+      </div>
+    </div>
+  )
+}
