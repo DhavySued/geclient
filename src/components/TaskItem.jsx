@@ -231,6 +231,8 @@ function EditForm({ task, users, clients, onSave, onCancel }) {
   )
 }
 
+export { EditForm }
+
 // ── Template Card ─────────────────────────────────────────────────────────────
 
 function TemplateCard({ task, users, clients, onUpdate, onDelete }) {

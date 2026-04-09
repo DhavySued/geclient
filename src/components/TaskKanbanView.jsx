@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import {
   CheckSquare, Square, Trash2, Calendar, Clock,
-  Building2, CalendarDays,
+  Building2, CalendarDays, Pencil,
 } from 'lucide-react'
 import { getInitials } from '../context/UsersContext'
-import { PRIORITY_STYLE, PRIORITY_LABEL, formatDate, isOverdue } from './TaskItem'
+import { PRIORITY_STYLE, PRIORITY_LABEL, formatDate, isOverdue, EditForm } from './TaskItem'
 
 // ── Column configs ────────────────────────────────────────────────────────────
 
@@ -45,6 +45,8 @@ function UserAvatar({ user, size = 18 }) {
 // ── Kanban Card ───────────────────────────────────────────────────────────────
 
 function KanbanCard({ task, index, users, clients, groupBy, onToggle, onUpdate, onDelete, onOpenClient }) {
+  const [editing, setEditing] = useState(false)
+
   const userMap   = Object.fromEntries(users.map(u => [u.id, u]))
   const clientMap = clients ? Object.fromEntries(clients.map(c => [c.id, c])) : {}
 
@@ -56,112 +58,138 @@ function KanbanCard({ task, index, users, clients, groupBy, onToggle, onUpdate, 
   const descText     = stripHtml(task.description)
 
   return (
-    <Draggable draggableId={task.id} index={index}>
+    <Draggable draggableId={task.id} index={index} isDragDisabled={editing}>
       {(provided, snapshot) => (
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
-          {...provided.dragHandleProps}
-          className={`bg-gray-800 rounded-xl p-3 border shadow-md transition-all select-none ${
-            snapshot.isDragging
-              ? 'opacity-90 scale-[1.02] shadow-2xl border-amber-500/50 cursor-grabbing'
+          {...(editing ? {} : provided.dragHandleProps)}
+          className={`bg-gray-800 rounded-xl border shadow-md transition-all ${
+            editing
+              ? 'border-amber-500/40 cursor-default'
+              : snapshot.isDragging
+              ? 'opacity-90 scale-[1.02] shadow-2xl border-amber-500/50 cursor-grabbing select-none'
               : isDone
-              ? 'border-gray-700/40 opacity-60 cursor-grab'
+              ? 'border-gray-700/40 opacity-60 cursor-grab select-none'
               : overdue
-              ? 'border-red-500/30 bg-red-950/20 cursor-grab'
-              : 'border-gray-700 hover:border-gray-500 cursor-grab'
+              ? 'border-red-500/30 bg-red-950/20 cursor-grab select-none'
+              : 'border-gray-700 hover:border-gray-500 cursor-grab select-none'
           }`}
         >
-          {/* Title */}
-          <p className={`text-sm font-semibold leading-tight mb-1.5 ${isDone ? 'line-through text-gray-500' : 'text-gray-100'}`}>
-            {task.title}
-          </p>
-
-          {/* Description snippet */}
-          {descText && (
-            <p className="text-xs text-gray-500 leading-relaxed mb-2 line-clamp-2">{descText}</p>
-          )}
-
-          {/* Badge row — show opposite dimension */}
-          <div className="flex items-center gap-1.5 flex-wrap mb-2">
-            {groupBy === 'priority' ? (
-              /* In priority grouping → show status */
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
-                task.status === 'concluida'    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
-                task.status === 'em_andamento' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' :
-                                                 'bg-gray-700/60 text-gray-400 border-gray-600/40'
-              }`}>
-                {task.status === 'concluida' ? 'Concluída' : task.status === 'em_andamento' ? 'Em andamento' : 'Pendente'}
-              </span>
-            ) : (
-              /* In status grouping → show priority */
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${PRIORITY_STYLE[task.priority]}`}>
-                {PRIORITY_LABEL[task.priority]}
-              </span>
-            )}
-
-            {task.dueDate && (
-              <div className={`flex items-center gap-1 text-[10px] ${overdue ? 'text-red-400 font-semibold' : 'text-gray-500'}`}>
-                <Calendar size={9} />
-                <span>{formatDate(task.dueDate)}</span>
-                {task.time && (
-                  <>
-                    <Clock size={9} className="ml-0.5" />
-                    <span>{task.time}</span>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-700/50">
-            <div className="flex items-center gap-1.5 min-w-0">
-              {assignedUser && (
-                <div className="flex items-center gap-1">
-                  <UserAvatar user={assignedUser} size={16} />
-                  <span className="text-[10px] text-gray-500 truncate max-w-[70px]">{assignedUser.name.split(' ')[0]}</span>
-                </div>
-              )}
-              {linkedClient && onOpenClient && (
+          {editing ? (
+            /* ── Edit mode ── */
+            <div className="p-2">
+              <EditForm
+                task={task}
+                users={users}
+                clients={clients}
+                onSave={(updates) => { onUpdate(task.id, updates); setEditing(false) }}
+                onCancel={() => setEditing(false)}
+              />
+            </div>
+          ) : (
+            /* ── View mode ── */
+            <div className="p-3 group">
+              {/* Title + edit button */}
+              <div className="flex items-start justify-between gap-1 mb-1.5">
+                <p className={`text-sm font-semibold leading-tight flex-1 min-w-0 ${isDone ? 'line-through text-gray-500' : 'text-gray-100'}`}>
+                  {task.title}
+                </p>
                 <button
                   onMouseDown={e => e.stopPropagation()}
-                  onClick={e => { e.stopPropagation(); onOpenClient(linkedClient) }}
-                  className="flex items-center gap-1 text-[10px] text-gray-600 hover:text-amber-400 transition-colors truncate max-w-[90px]"
+                  onClick={e => { e.stopPropagation(); setEditing(true) }}
+                  className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-600 hover:text-amber-400 transition-all flex-shrink-0"
+                  title="Editar"
                 >
-                  <Building2 size={9} />
-                  <span className="truncate">{linkedClient.name}</span>
+                  <Pencil size={12} />
                 </button>
-              )}
-            </div>
+              </div>
 
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <button
-                onMouseDown={e => e.stopPropagation()}
-                onClick={e => { e.stopPropagation(); onUpdate(task.id, { showInAgenda: !inAgenda }) }}
-                title={inAgenda ? 'Ocultar da agenda' : 'Exibir na agenda'}
-                className={`p-1 rounded transition-colors ${inAgenda ? 'text-amber-400/70 hover:text-amber-300' : 'text-gray-700 hover:text-amber-400'}`}
-              >
-                <CalendarDays size={12} />
-              </button>
-              <button
-                onMouseDown={e => e.stopPropagation()}
-                onClick={e => { e.stopPropagation(); onToggle(task) }}
-                className={`p-1 rounded transition-colors ${isDone ? 'text-emerald-400 hover:text-gray-400' : 'text-gray-600 hover:text-emerald-400'}`}
-                title={isDone ? 'Desmarcar' : 'Concluir'}
-              >
-                {isDone ? <CheckSquare size={13} /> : <Square size={13} />}
-              </button>
-              <button
-                onMouseDown={e => e.stopPropagation()}
-                onClick={e => { e.stopPropagation(); onDelete(task.id) }}
-                className="p-1 rounded text-gray-700 hover:text-red-400 transition-colors"
-                title="Excluir"
-              >
-                <Trash2 size={12} />
-              </button>
+              {/* Description snippet */}
+              {descText && (
+                <p className="text-xs text-gray-500 leading-relaxed mb-2 line-clamp-2">{descText}</p>
+              )}
+
+              {/* Badge row */}
+              <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                {groupBy === 'priority' ? (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
+                    task.status === 'concluida'    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                    task.status === 'em_andamento' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' :
+                                                     'bg-gray-700/60 text-gray-400 border-gray-600/40'
+                  }`}>
+                    {task.status === 'concluida' ? 'Concluída' : task.status === 'em_andamento' ? 'Em andamento' : 'Pendente'}
+                  </span>
+                ) : (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${PRIORITY_STYLE[task.priority]}`}>
+                    {PRIORITY_LABEL[task.priority]}
+                  </span>
+                )}
+
+                {task.dueDate && (
+                  <div className={`flex items-center gap-1 text-[10px] ${overdue ? 'text-red-400 font-semibold' : 'text-gray-500'}`}>
+                    <Calendar size={9} />
+                    <span>{formatDate(task.dueDate)}</span>
+                    {task.time && (
+                      <>
+                        <Clock size={9} className="ml-0.5" />
+                        <span>{task.time}</span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-700/50">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {assignedUser && (
+                    <div className="flex items-center gap-1">
+                      <UserAvatar user={assignedUser} size={16} />
+                      <span className="text-[10px] text-gray-500 truncate max-w-[70px]">{assignedUser.name.split(' ')[0]}</span>
+                    </div>
+                  )}
+                  {linkedClient && onOpenClient && (
+                    <button
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); onOpenClient(linkedClient) }}
+                      className="flex items-center gap-1 text-[10px] text-gray-600 hover:text-amber-400 transition-colors truncate max-w-[90px]"
+                    >
+                      <Building2 size={9} />
+                      <span className="truncate">{linkedClient.name}</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={e => { e.stopPropagation(); onUpdate(task.id, { showInAgenda: !inAgenda }) }}
+                    title={inAgenda ? 'Ocultar da agenda' : 'Exibir na agenda'}
+                    className={`p-1 rounded transition-colors ${inAgenda ? 'text-amber-400/70 hover:text-amber-300' : 'text-gray-700 hover:text-amber-400'}`}
+                  >
+                    <CalendarDays size={12} />
+                  </button>
+                  <button
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={e => { e.stopPropagation(); onToggle(task) }}
+                    className={`p-1 rounded transition-colors ${isDone ? 'text-emerald-400 hover:text-gray-400' : 'text-gray-600 hover:text-emerald-400'}`}
+                    title={isDone ? 'Desmarcar' : 'Concluir'}
+                  >
+                    {isDone ? <CheckSquare size={13} /> : <Square size={13} />}
+                  </button>
+                  <button
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={e => { e.stopPropagation(); onDelete(task.id) }}
+                    className="p-1 rounded text-gray-700 hover:text-red-400 transition-colors"
+                    title="Excluir"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </Draggable>
