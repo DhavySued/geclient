@@ -3,6 +3,7 @@ import { AlertTriangle, FileX, Clock, User } from 'lucide-react'
 import LevelBadge from './LevelBadge'
 import { calcFiscalScore, getApplicableItems } from '../hooks/useFiscalItems'
 import { useSettings } from '../context/SettingsContext'
+import { useFiscalItemsCtx } from '../context/FiscalItemsContext'
 
 const taxColors = {
   INSS: 'bg-red-500/20 text-red-300 border-red-500/30',
@@ -48,13 +49,14 @@ function ScoreBar({ score }) {
 export default function FiscalCard({ client, index, onOpen, selectedMonth }) {
   const isPremium = client.level === 'Premium'
   const { settings } = useSettings()
+  const { fiscalItems } = useFiscalItemsCtx()
 
-  const applicableItems = getApplicableItems(client, settings.regimeItems)
+  const applicableItems = getApplicableItems(client, settings.regimeItems, fiscalItems)
   const fiscalEntry = selectedMonth
     ? (client.fiscalHistory ?? []).find(h => h.month === selectedMonth)
     : null
   const fiscalScore = fiscalEntry && applicableItems.length > 0
-    ? calcFiscalScore(fiscalEntry.checks ?? {}, applicableItems, settings.itemWeights)
+    ? calcFiscalScore(fiscalEntry.checks ?? {}, applicableItems)
     : null
 
   return (

@@ -3,6 +3,7 @@ import { ClientsProvider, useClients } from './context/ClientsContext'
 import { TasksProvider } from './context/TasksContext'
 import { UsersProvider } from './context/UsersContext'
 import { SettingsProvider } from './context/SettingsContext'
+import { FiscalItemsProvider } from './context/FiscalItemsContext'
 import Sidebar from './components/Sidebar'
 import ClientDetailModal from './components/ClientDetailModal'
 import FiscalPage from './pages/FiscalPage'
@@ -76,13 +77,15 @@ function AppContent() {
 export default function App() {
   return (
     <SettingsProvider>
-      <ClientsProvider>
-        <UsersProvider>
-          <TasksProvider>
-            <AppContent />
-          </TasksProvider>
-        </UsersProvider>
-      </ClientsProvider>
+      <FiscalItemsProvider>
+        <ClientsProvider>
+          <UsersProvider>
+            <TasksProvider>
+              <AppContent />
+            </TasksProvider>
+          </UsersProvider>
+        </ClientsProvider>
+      </FiscalItemsProvider>
     </SettingsProvider>
   )
 }

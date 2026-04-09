@@ -9,6 +9,7 @@ import { useUsers } from '../context/UsersContext'
 import { useClients } from '../context/ClientsContext'
 import { calcFiscalScore, getApplicableItems } from '../hooks/useFiscalItems'
 import { useSettings } from '../context/SettingsContext'
+import { useFiscalItemsCtx } from '../context/FiscalItemsContext'
 import LevelBadge from './LevelBadge'
 import HealthBar from './HealthBar'
 import RichTextEditor from './RichTextEditor'
@@ -477,7 +478,8 @@ function FiscalScoreBar({ score }) {
 function FiscalHistoryTab({ client }) {
   const { updateClient } = useClients()
   const { settings }     = useSettings()
-  const applicableItems  = getApplicableItems(client, settings.regimeItems)
+  const { fiscalItems }  = useFiscalItemsCtx()
+  const applicableItems  = getApplicableItems(client, settings.regimeItems, fiscalItems)
   const currentMonth           = new Date().toISOString().slice(0, 7)
   const history                = client.fiscalHistory ?? []
   const hasCurrentMonth        = history.some(h => h.month === currentMonth)
@@ -561,7 +563,7 @@ function FiscalHistoryTab({ client }) {
             const isExpanded     = expanded[entry.month] ?? isCurrentMonth
             const isEditingThis  = editingNote === entry.month
             const score          = applicableItems.length > 0
-              ? calcFiscalScore(entry.checks ?? {}, applicableItems, settings.itemWeights)
+              ? calcFiscalScore(entry.checks ?? {}, applicableItems)
               : null
 
             return (
