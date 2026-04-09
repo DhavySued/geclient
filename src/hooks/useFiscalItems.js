@@ -1,17 +1,20 @@
 /**
  * getApplicableItems — retorna os itens fiscais aplicáveis a uma empresa.
  *
- * Fontes (todas vêm do banco via contextos):
- *   fiscalItems    : item[] — tabela fiscal_items completa
- *   regimeItemIds  : { [regime]: string[] } — de regime_fiscal_items
- *   conditionItemIds: { employees: string[], pro_labore: string[] } — de condition_fiscal_items
+ * Ordem de aplicação (deduplicado por Set):
+ *   1. Condições de folha (hasEmployees / hasProLabore)
+ *   2. Regime tributário
+ *   3. Tipo de atividade (Serviço / Comércio / Misto)
  *
- * Regras sempre automáticas (tipo de atividade):
- *   Sit. Federal   → sempre
- *   Sit. Municipal → Serviço ou Misto
- *   Sit. Estadual  → Comércio ou Misto
+ * Todas as origens vêm do banco via FiscalConfigContext.
  */
-export function getApplicableItems(client, fiscalItems = [], regimeItemIds = {}, conditionItemIds = {}) {
+export function getApplicableItems(
+  client,
+  fiscalItems    = [],
+  regimeItemIds  = {},
+  conditionItemIds = {},
+  tipoItemIds    = {},
+) {
   const regime = client?.regime ?? ''
   const tipo   = client?.tipo   ?? ''
   const byId   = id => fiscalItems.find(i => i.id === id)
@@ -24,27 +27,21 @@ export function getApplicableItems(client, fiscalItems = [], regimeItemIds = {},
   }
 
   // 1. Condições de folha
-  if (client?.hasEmployees) {
-    (conditionItemIds.employees  ?? []).forEach(id => add(byId(id)))
-  }
-  if (client?.hasProLabore) {
-    (conditionItemIds.pro_labore ?? []).forEach(id => add(byId(id)))
-  }
+  if (client?.hasEmployees) (conditionItemIds.employees  ?? []).forEach(id => add(byId(id)))
+  if (client?.hasProLabore) (conditionItemIds.pro_labore ?? []).forEach(id => add(byId(id)))
 
   // 2. Regime tributário
   ;(regimeItemIds[regime] ?? []).forEach(id => add(byId(id)))
 
-  // 3. Certidões — sempre automáticas pelo tipo de atividade
-  add(byId('federal'))
-  if (['Serviço', 'Misto'].includes(tipo))  add(byId('municipal'))
-  if (['Comércio', 'Misto'].includes(tipo)) add(byId('estadual'))
+  // 3. Tipo de atividade
+  ;(tipoItemIds[tipo] ?? []).forEach(id => add(byId(id)))
 
   return result.filter(Boolean)
 }
 
 /**
- * calcFiscalScore — score ponderado 0-100.
- * Pesos vêm embutidos nos itens (campo weight do banco).
+ * calcFiscalScore — score ponderado 0–100.
+ * Pesos vêm do campo weight de cada item (banco de dados).
  */
 export function calcFiscalScore(checks, applicableItems) {
   if (!applicableItems?.length) return null

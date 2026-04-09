@@ -49,9 +49,9 @@ function ScoreBar({ score }) {
 export default function FiscalCard({ client, index, onOpen, selectedMonth }) {
   const isPremium = client.level === 'Premium'
   const { fiscalItems }                      = useFiscalItemsCtx()
-  const { regimeItems, conditionItems }      = useFiscalConfig()
+  const { regimeItems, conditionItems, tipoItems } = useFiscalConfig()
 
-  const applicableItems = getApplicableItems(client, fiscalItems, regimeItems, conditionItems)
+  const applicableItems = getApplicableItems(client, fiscalItems, regimeItems, conditionItems, tipoItems)
   const fiscalEntry = selectedMonth
     ? (client.fiscalHistory ?? []).find(h => h.month === selectedMonth)
     : null

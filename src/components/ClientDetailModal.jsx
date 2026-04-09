@@ -478,8 +478,8 @@ function FiscalScoreBar({ score }) {
 function FiscalHistoryTab({ client }) {
   const { updateClient } = useClients()
   const { fiscalItems }                 = useFiscalItemsCtx()
-  const { regimeItems, conditionItems } = useFiscalConfig()
-  const applicableItems = getApplicableItems(client, fiscalItems, regimeItems, conditionItems)
+  const { regimeItems, conditionItems, tipoItems } = useFiscalConfig()
+  const applicableItems = getApplicableItems(client, fiscalItems, regimeItems, conditionItems, tipoItems)
   const currentMonth           = new Date().toISOString().slice(0, 7)
   const history                = client.fiscalHistory ?? []
   const hasCurrentMonth        = history.some(h => h.month === currentMonth)

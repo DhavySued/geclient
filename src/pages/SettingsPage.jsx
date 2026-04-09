@@ -1,11 +1,8 @@
-import { Settings, Calendar, BarChart3, Scale, Users, Briefcase, Plus, Pencil, Trash2, Check, X, Loader2, RotateCcw } from 'lucide-react'
+import { Settings, Calendar, BarChart3, Scale, Users, Briefcase, Store, Plus, Pencil, Trash2, Check, X, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { useSettings } from '../context/SettingsContext'
-import { useFiscalItemsCtx, PROFILE_BASED_IDS } from '../context/FiscalItemsContext'
-import { useFiscalConfig, REGIMES, TIPO_BASED_IDS } from '../context/FiscalConfigContext'
-
-// IDs que não aparecem nos seletores de alocação (gerenciados automaticamente pelo sistema)
-const AUTO_IDS = new Set([...TIPO_BASED_IDS])
+import { useFiscalItemsCtx } from '../context/FiscalItemsContext'
+import { useFiscalConfig, REGIMES, TIPOS } from '../context/FiscalConfigContext'
 
 // ── Toggle ─────────────────────────────────────────────────────────────────────
 
@@ -35,13 +32,10 @@ function Toggle({ checked, onChange, label, description }) {
 // ── Item picker genérico ───────────────────────────────────────────────────────
 
 function ItemPicker({ items, selectedIds, onToggle }) {
-  const available = items.filter(i => !AUTO_IDS.has(i.id))
-  if (available.length === 0) {
-    return <p className="text-xs text-gray-600 italic">Nenhum item disponível.</p>
-  }
+  if (!items.length) return <p className="text-xs text-gray-600 italic">Nenhum item cadastrado.</p>
   return (
     <div className="flex flex-wrap gap-2">
-      {available.map(item => {
+      {items.map(item => {
         const active = selectedIds.includes(item.id)
         return (
           <button
@@ -61,6 +55,28 @@ function ItemPicker({ items, selectedIds, onToggle }) {
   )
 }
 
+// ── Allocation card (reutilizável) ─────────────────────────────────────────────
+
+function AllocationCard({ icon: Icon, iconColor, title, badge, badgeColor, items, selectedIds, onToggle }) {
+  return (
+    <div className="bg-gray-800 border border-gray-700 rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-3">
+        {Icon && <Icon size={14} className={iconColor} />}
+        <h4 className="text-sm font-semibold text-gray-200">{title}</h4>
+        {selectedIds.length > 0 && (
+          <span className={`ml-auto text-[10px] font-bold rounded-full px-1.5 py-0.5 border ${badgeColor}`}>
+            {selectedIds.length}
+          </span>
+        )}
+      </div>
+      <ItemPicker items={items} selectedIds={selectedIds} onToggle={onToggle} />
+      {selectedIds.length === 0 && items.length > 0 && (
+        <p className="text-xs text-gray-600 mt-2 italic">Nenhum item selecionado.</p>
+      )}
+    </div>
+  )
+}
+
 // ── Fiscal Item Row (CRUD) ─────────────────────────────────────────────────────
 
 function FiscalItemRow({ item, onUpdate, onDelete }) {
@@ -72,13 +88,11 @@ function FiscalItemRow({ item, onUpdate, onDelete }) {
 
   async function handleSave() {
     const w = parseInt(weight, 10)
-    if (!label.trim())            { setError('Nome obrigatório'); return }
-    if (isNaN(w) || w < 1 || w > 100) { setError('Peso 1–100'); return }
+    if (!label.trim())                { setError('Nome obrigatório'); return }
+    if (isNaN(w) || w < 1 || w > 100) { setError('Peso 1–100');       return }
     setSaving(true)
-    try {
-      await onUpdate(item.id, { label: label.trim(), weight: w })
-      setEditing(false); setError('')
-    } catch (e) { setError(e.message) }
+    try { await onUpdate(item.id, { label: label.trim(), weight: w }); setEditing(false); setError('') }
+    catch (e) { setError(e.message) }
     finally { setSaving(false) }
   }
 
@@ -96,21 +110,14 @@ function FiscalItemRow({ item, onUpdate, onDelete }) {
         <button onClick={handleSave} disabled={saving} className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors">
           {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
         </button>
-        <button onClick={handleCancel} className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 transition-colors">
-          <X size={14} />
-        </button>
+        <button onClick={handleCancel} className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300"><X size={14} /></button>
       </div>
     )
   }
 
   return (
     <div className="flex items-center gap-3 px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-xl group">
-      <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium text-gray-200">{item.label}</span>
-        {TIPO_BASED_IDS.has(item.id) && (
-          <span className="ml-2 text-[10px] text-gray-600 border border-gray-700 rounded px-1">automático</span>
-        )}
-      </div>
+      <span className="flex-1 text-sm font-medium text-gray-200">{item.label}</span>
       <div className="flex items-center gap-1.5 flex-shrink-0">
         <span className="text-sm font-bold text-amber-400">{item.weight}</span>
         <span className="text-xs text-gray-600">pts</span>
@@ -137,8 +144,8 @@ function AddItemForm({ onAdd }) {
   async function handleSubmit(e) {
     e.preventDefault()
     const w = parseInt(weight, 10)
-    if (!label.trim())            { setError('Nome obrigatório'); return }
-    if (isNaN(w) || w < 1 || w > 100) { setError('Peso 1–100'); return }
+    if (!label.trim())                { setError('Nome obrigatório'); return }
+    if (isNaN(w) || w < 1 || w > 100) { setError('Peso 1–100');       return }
     setSaving(true)
     try { await onAdd({ label: label.trim(), weight: w }); setLabel(''); setWeight('10'); setError(''); setOpen(false) }
     catch (e) { setError(e.message) }
@@ -177,19 +184,22 @@ function AddItemForm({ onAdd }) {
 
 export default function SettingsPage() {
   const { settings, update } = useSettings()
+  const { fiscalItems, loading: itemsLoading, error: itemsError, addFiscalItem, updateFiscalItem, deleteFiscalItem } = useFiscalItemsCtx()
   const {
-    fiscalItems, loading: itemsLoading, error: itemsError,
-    addFiscalItem, updateFiscalItem, deleteFiscalItem,
-  } = useFiscalItemsCtx()
-  const {
-    regimeItems, conditionItems,
-    toggleRegimeItem, toggleConditionItem,
+    regimeItems, conditionItems, tipoItems,
+    toggleRegimeItem, toggleConditionItem, toggleTipoItem,
     loading: configLoading, error: configError,
   } = useFiscalConfig()
 
   const totalWeight = fiscalItems.reduce((s, i) => s + i.weight, 0)
   const isLoading   = itemsLoading || configLoading
   const anyError    = itemsError || configError
+
+  const TIPO_CONFIG = [
+    { tipo: 'Serviço',  icon: Briefcase, iconColor: 'text-emerald-400', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+    { tipo: 'Comércio', icon: Store,     iconColor: 'text-blue-400',    badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30'          },
+    { tipo: 'Misto',    icon: BarChart3, iconColor: 'text-purple-400',  badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30'    },
+  ]
 
   async function handleDeleteItem(id) {
     if (!confirm('Excluir este item fiscal? Ele será removido de todas as alocações.')) return
@@ -216,7 +226,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* ── Calendário ─────────────────────────────────────────────────────── */}
+      {/* Calendário */}
       <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-5">
         <div className="flex items-center gap-2">
           <Calendar size={16} className="text-amber-400" />
@@ -226,11 +236,11 @@ export default function SettingsPage() {
           checked={settings.showUndatedInCalendar}
           onChange={val => update({ showUndatedInCalendar: val })}
           label="Exibir atividades sem data no painel lateral"
-          description="Mostra no calendário as tarefas que não possuem data de vencimento definida."
+          description="Mostra no calendário as tarefas sem data de vencimento definida."
         />
       </section>
 
-      {/* ── Itens Fiscais (CRUD) ────────────────────────────────────────────── */}
+      {/* Itens Fiscais */}
       <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -246,9 +256,7 @@ export default function SettingsPage() {
         </div>
         <p className="text-xs text-gray-500">
           Cadastre os impostos e encargos monitorados. O peso de cada item define sua influência no Score Fiscal.
-          Itens marcados como <span className="text-gray-400 font-medium">automático</span> são sempre exibidos pelo tipo de atividade da empresa.
         </p>
-
         {isLoading ? (
           <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-amber-400" /></div>
         ) : (
@@ -261,93 +269,90 @@ export default function SettingsPage() {
         )}
       </section>
 
-      {/* ── Alocação por Regime Tributário ──────────────────────────────────── */}
+      {/* Alocação por Regime */}
       <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-5">
         <div className="flex items-center gap-2">
           <BarChart3 size={16} className="text-amber-400" />
           <h2 className="text-sm font-bold text-gray-300 uppercase tracking-wider">Alocação por Regime Tributário</h2>
         </div>
         <p className="text-xs text-gray-500">
-          Defina quais impostos são monitorados para cada regime. Certidões negativas são sempre exibidas automaticamente pelo tipo de atividade.
+          Defina quais impostos são monitorados para cada regime tributário.
         </p>
-
         {isLoading ? (
           <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin text-amber-400" /></div>
         ) : (
           <div className="grid gap-3">
             {REGIMES.map(regime => (
-              <div key={regime} className="bg-gray-800 border border-gray-700 rounded-xl p-4">
-                <h4 className="text-sm font-semibold text-gray-200 mb-3">{regime}</h4>
-                <ItemPicker
-                  items={fiscalItems}
-                  selectedIds={regimeItems[regime] ?? []}
-                  onToggle={id => toggleRegimeItem(regime, id)}
-                />
-                {(regimeItems[regime] ?? []).length === 0 && (
-                  <p className="text-xs text-gray-600 mt-2 italic">Nenhum imposto selecionado.</p>
-                )}
-              </div>
+              <AllocationCard
+                key={regime}
+                title={regime}
+                items={fiscalItems}
+                selectedIds={regimeItems[regime] ?? []}
+                onToggle={id => toggleRegimeItem(regime, id)}
+                badgeColor="bg-amber-500/20 text-amber-300 border-amber-500/30"
+              />
             ))}
           </div>
         )}
       </section>
 
-      {/* ── Alocação por Condição de Folha ──────────────────────────────────── */}
+      {/* Alocação por Condição de Folha */}
       <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-5">
         <div className="flex items-center gap-2">
           <Users size={16} className="text-amber-400" />
           <h2 className="text-sm font-bold text-gray-300 uppercase tracking-wider">Alocação por Condição de Folha</h2>
         </div>
         <p className="text-xs text-gray-500">
-          Defina quais encargos são monitorados quando a empresa possui empregados CLT ou pró-labore.
-          Esses encargos são somados automaticamente aos impostos do regime tributário.
+          Defina os encargos monitorados quando a empresa possui empregados CLT ou pró-labore.
         </p>
-
         {isLoading ? (
           <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin text-amber-400" /></div>
         ) : (
           <div className="grid gap-3">
-            {/* Empregados */}
-            <div className="bg-gray-800 border border-gray-700 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Users size={14} className="text-blue-400" />
-                <h4 className="text-sm font-semibold text-gray-200">Tem Empregados (CLT)</h4>
-                {(conditionItems.employees ?? []).length > 0 && (
-                  <span className="ml-auto text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-full px-1.5 py-0.5">
-                    {conditionItems.employees.length}
-                  </span>
-                )}
-              </div>
-              <ItemPicker
-                items={fiscalItems}
-                selectedIds={conditionItems.employees ?? []}
-                onToggle={id => toggleConditionItem('employees', id)}
-              />
-              {(conditionItems.employees ?? []).length === 0 && (
-                <p className="text-xs text-gray-600 mt-2 italic">Nenhum encargo selecionado.</p>
-              )}
-            </div>
+            <AllocationCard
+              icon={Users} iconColor="text-blue-400"
+              title="Tem Empregados (CLT)"
+              badgeColor="bg-blue-500/20 text-blue-300 border-blue-500/30"
+              items={fiscalItems}
+              selectedIds={conditionItems.employees ?? []}
+              onToggle={id => toggleConditionItem('employees', id)}
+            />
+            <AllocationCard
+              icon={Briefcase} iconColor="text-purple-400"
+              title="Tem Pró-Labore"
+              badgeColor="bg-purple-500/20 text-purple-300 border-purple-500/30"
+              items={fiscalItems}
+              selectedIds={conditionItems.pro_labore ?? []}
+              onToggle={id => toggleConditionItem('pro_labore', id)}
+            />
+          </div>
+        )}
+      </section>
 
-            {/* Pró-labore */}
-            <div className="bg-gray-800 border border-gray-700 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Briefcase size={14} className="text-purple-400" />
-                <h4 className="text-sm font-semibold text-gray-200">Tem Pró-Labore</h4>
-                {(conditionItems.pro_labore ?? []).length > 0 && (
-                  <span className="ml-auto text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-full px-1.5 py-0.5">
-                    {conditionItems.pro_labore.length}
-                  </span>
-                )}
-              </div>
-              <ItemPicker
+      {/* Alocação por Tipo de Atividade */}
+      <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-5">
+        <div className="flex items-center gap-2">
+          <Store size={16} className="text-amber-400" />
+          <h2 className="text-sm font-bold text-gray-300 uppercase tracking-wider">Alocação por Tipo de Atividade</h2>
+        </div>
+        <p className="text-xs text-gray-500">
+          Defina quais itens são monitorados conforme o tipo de atividade da empresa (Serviço, Comércio ou Misto).
+        </p>
+        {isLoading ? (
+          <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin text-amber-400" /></div>
+        ) : (
+          <div className="grid gap-3">
+            {TIPO_CONFIG.map(({ tipo, icon, iconColor, badgeColor }) => (
+              <AllocationCard
+                key={tipo}
+                icon={icon} iconColor={iconColor}
+                title={tipo}
+                badgeColor={badgeColor}
                 items={fiscalItems}
-                selectedIds={conditionItems.pro_labore ?? []}
-                onToggle={id => toggleConditionItem('pro_labore', id)}
+                selectedIds={tipoItems[tipo] ?? []}
+                onToggle={id => toggleTipoItem(tipo, id)}
               />
-              {(conditionItems.pro_labore ?? []).length === 0 && (
-                <p className="text-xs text-gray-600 mt-2 italic">Nenhum encargo selecionado.</p>
-              )}
-            </div>
+            ))}
           </div>
         )}
       </section>

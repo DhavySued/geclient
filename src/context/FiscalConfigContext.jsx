@@ -2,60 +2,50 @@
  * FiscalConfigContext
  *
  * Gerencia as tabelas de vínculo no Supabase:
- *   regime_fiscal_items    → qual imposto aplica em cada regime tributário
- *   condition_fiscal_items → qual imposto aplica quando tem_empregado / tem_pro_labore
- *
- * Expõe:
- *   regimeItems    : { [regime]: string[] }          — ids de itens por regime
- *   conditionItems : { employees: string[], pro_labore: string[] }
- *   toggleRegimeItem(regime, itemId)
- *   toggleConditionItem(condition, itemId)
- *   loading / error
+ *   regime_fiscal_items    → imposto por regime tributário
+ *   condition_fiscal_items → imposto por condição de folha (employees / pro_labore)
+ *   tipo_fiscal_items      → imposto por tipo de atividade (Serviço / Comércio / Misto)
  */
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
 export const REGIMES = ['MEI', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real']
+export const TIPOS   = ['Serviço', 'Comércio', 'Misto']
 
-// IDs dos itens derivados do tipo de atividade (sempre automáticos — não aparecem nas seções de alocação)
-export const TIPO_BASED_IDS = new Set(['federal', 'municipal', 'estadual'])
-
-const EMPTY_CONFIG = {
+const EMPTY = {
   regimeItems:    { MEI: [], 'Simples Nacional': [], 'Lucro Presumido': [], 'Lucro Real': [] },
   conditionItems: { employees: [], pro_labore: [] },
+  tipoItems:      { 'Serviço': [], 'Comércio': [], 'Misto': [] },
 }
 
 const FiscalConfigContext = createContext(null)
 
 export function FiscalConfigProvider({ children }) {
-  const [regimeItems,    setRegimeItems]    = useState(EMPTY_CONFIG.regimeItems)
-  const [conditionItems, setConditionItems] = useState(EMPTY_CONFIG.conditionItems)
+  const [regimeItems,    setRegimeItems]    = useState(EMPTY.regimeItems)
+  const [conditionItems, setConditionItems] = useState(EMPTY.conditionItems)
+  const [tipoItems,      setTipoItems]      = useState(EMPTY.tipoItems)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
+  // ── Fetch all three tables ────────────────────────────────────────────────
 
   const fetchConfig = useCallback(async () => {
-    const [regRes, condRes] = await Promise.all([
+    const [regRes, condRes, tipoRes] = await Promise.all([
       supabase.from('regime_fiscal_items').select('regime, fiscal_item_id'),
       supabase.from('condition_fiscal_items').select('condition, fiscal_item_id'),
+      supabase.from('tipo_fiscal_items').select('tipo, fiscal_item_id'),
     ])
 
-    if (regRes.error || condRes.error) {
-      setError((regRes.error || condRes.error).message)
-      setLoading(false)
-      return
-    }
+    const anyError = regRes.error || condRes.error || tipoRes.error
+    if (anyError) { setError(anyError.message); setLoading(false); return }
 
-    // Build regimeItems map
-    const ri = { ...EMPTY_CONFIG.regimeItems }
+    const ri = { ...EMPTY.regimeItems }
     for (const row of regRes.data) {
       if (!ri[row.regime]) ri[row.regime] = []
       if (!ri[row.regime].includes(row.fiscal_item_id)) ri[row.regime].push(row.fiscal_item_id)
     }
     setRegimeItems(ri)
 
-    // Build conditionItems map
     const ci = { employees: [], pro_labore: [] }
     for (const row of condRes.data) {
       if (!ci[row.condition]) ci[row.condition] = []
@@ -63,90 +53,54 @@ export function FiscalConfigProvider({ children }) {
     }
     setConditionItems(ci)
 
+    const ti = { 'Serviço': [], 'Comércio': [], 'Misto': [] }
+    for (const row of tipoRes.data) {
+      if (!ti[row.tipo]) ti[row.tipo] = []
+      if (!ti[row.tipo].includes(row.fiscal_item_id)) ti[row.tipo].push(row.fiscal_item_id)
+    }
+    setTipoItems(ti)
+
     setError(null)
     setLoading(false)
   }, [])
 
   useEffect(() => { fetchConfig() }, [fetchConfig])
 
-  // Real-time subscriptions
   useEffect(() => {
-    const ch1 = supabase
-      .channel('regime-fiscal-items-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'regime_fiscal_items' }, fetchConfig)
-      .subscribe()
-    const ch2 = supabase
-      .channel('condition-fiscal-items-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'condition_fiscal_items' }, fetchConfig)
-      .subscribe()
-    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2) }
+    const channels = [
+      supabase.channel('rfi').on('postgres_changes', { event: '*', schema: 'public', table: 'regime_fiscal_items' },    fetchConfig).subscribe(),
+      supabase.channel('cfi').on('postgres_changes', { event: '*', schema: 'public', table: 'condition_fiscal_items' }, fetchConfig).subscribe(),
+      supabase.channel('tfi').on('postgres_changes', { event: '*', schema: 'public', table: 'tipo_fiscal_items' },      fetchConfig).subscribe(),
+    ]
+    return () => channels.forEach(ch => supabase.removeChannel(ch))
   }, [fetchConfig])
 
-  // ── Toggle regime item ─────────────────────────────────────────────────────
+  // ── Generic toggle helper ─────────────────────────────────────────────────
 
-  const toggleRegimeItem = useCallback(async (regime, itemId) => {
-    const current = regimeItems[regime] ?? []
-    const isActive = current.includes(itemId)
-
-    // Optimistic update
-    setRegimeItems(prev => ({
-      ...prev,
-      [regime]: isActive
-        ? prev[regime].filter(id => id !== itemId)
-        : [...(prev[regime] ?? []), itemId],
-    }))
-
-    const { error: err } = isActive
-      ? await supabase.from('regime_fiscal_items').delete()
-          .eq('regime', regime).eq('fiscal_item_id', itemId)
-      : await supabase.from('regime_fiscal_items').insert({ regime, fiscal_item_id: itemId })
-
-    if (err) {
-      // Rollback
-      setRegimeItems(prev => ({
-        ...prev,
-        [regime]: isActive
-          ? [...(prev[regime] ?? []), itemId]
-          : prev[regime].filter(id => id !== itemId),
-      }))
-      console.error('toggleRegimeItem error:', err)
+  function makeToggle(table, keyCol, setState) {
+    return async (keyVal, itemId) => {
+      setState(prev => {
+        const cur = prev[keyVal] ?? []
+        const active = cur.includes(itemId)
+        return { ...prev, [keyVal]: active ? cur.filter(id => id !== itemId) : [...cur, itemId] }
+      })
+      const active = (await supabase.from(table).select('fiscal_item_id').eq(keyCol, keyVal).eq('fiscal_item_id', itemId)).data?.length > 0
+      // re-read actual state to decide insert/delete
+      const { error: err } = active
+        ? await supabase.from(table).delete().eq(keyCol, keyVal).eq('fiscal_item_id', itemId)
+        : await supabase.from(table).insert({ [keyCol]: keyVal, fiscal_item_id: itemId })
+      if (err) { fetchConfig(); console.error(err) }
     }
-  }, [regimeItems])
+  }
 
-  // ── Toggle condition item ──────────────────────────────────────────────────
-
-  const toggleConditionItem = useCallback(async (condition, itemId) => {
-    const current = conditionItems[condition] ?? []
-    const isActive = current.includes(itemId)
-
-    // Optimistic update
-    setConditionItems(prev => ({
-      ...prev,
-      [condition]: isActive
-        ? prev[condition].filter(id => id !== itemId)
-        : [...(prev[condition] ?? []), itemId],
-    }))
-
-    const { error: err } = isActive
-      ? await supabase.from('condition_fiscal_items').delete()
-          .eq('condition', condition).eq('fiscal_item_id', itemId)
-      : await supabase.from('condition_fiscal_items').insert({ condition, fiscal_item_id: itemId })
-
-    if (err) {
-      setConditionItems(prev => ({
-        ...prev,
-        [condition]: isActive
-          ? [...(prev[condition] ?? []), itemId]
-          : prev[condition].filter(id => id !== itemId),
-      }))
-      console.error('toggleConditionItem error:', err)
-    }
-  }, [conditionItems])
+  const toggleRegimeItem    = useCallback(makeToggle('regime_fiscal_items',    'regime',    setRegimeItems),    [fetchConfig])
+  const toggleConditionItem = useCallback(makeToggle('condition_fiscal_items', 'condition', setConditionItems), [fetchConfig])
+  const toggleTipoItem      = useCallback(makeToggle('tipo_fiscal_items',      'tipo',      setTipoItems),      [fetchConfig])
 
   return (
     <FiscalConfigContext.Provider value={{
-      regimeItems, conditionItems,
-      toggleRegimeItem, toggleConditionItem,
+      regimeItems, conditionItems, tipoItems,
+      toggleRegimeItem, toggleConditionItem, toggleTipoItem,
       loading, error,
     }}>
       {children}
