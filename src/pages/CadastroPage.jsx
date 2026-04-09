@@ -12,9 +12,6 @@ const FISCAL_LABELS = {
   bloqueado: { label: 'Bloqueado', cls: 'text-red-400 bg-red-500/10 border-red-500/30' },
 }
 
-function formatCurrency(v) {
-  return v ? `R$ ${Number(v).toLocaleString('pt-BR')}` : '—'
-}
 
 export default function CadastroPage() {
   const { clients, addClient, updateClient, deleteClient, importClients } = useClients()
@@ -172,7 +169,6 @@ export default function CadastroPage() {
                 { key: 'tipo', label: 'Tipo' },
                 { key: 'responsible', label: 'Responsável' },
                 { key: 'fiscalStatus', label: 'Situação Fiscal' },
-                { key: 'monthlyRevenue', label: 'Faturamento' },
                 { key: 'healthScore', label: 'Health' },
               ].map(col => (
                 <th
@@ -192,7 +188,7 @@ export default function CadastroPage() {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-4 py-12 text-center text-gray-600 text-sm">
+                <td colSpan={9} className="px-4 py-12 text-center text-gray-600 text-sm">
                   Nenhuma empresa encontrada.
                 </td>
               </tr>
@@ -214,15 +210,20 @@ export default function CadastroPage() {
                     <LevelBadge level={client.level} />
                   </td>
                   <td className="px-4 py-3 text-gray-400 whitespace-nowrap text-xs">{client.regime}</td>
-                  <td className="px-4 py-3 text-gray-400 whitespace-nowrap text-xs">{client.tipo ?? '—'}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-xs">
+                    <span className={`inline-block px-2 py-0.5 rounded-full border font-medium ${
+                      client.tipo === 'Comércio' ? 'bg-blue-500/10 border-blue-500/30 text-blue-300' :
+                      client.tipo === 'Misto'    ? 'bg-purple-500/10 border-purple-500/30 text-purple-300' :
+                                                   'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                    }`}>
+                      {client.tipo ?? 'Serviço'}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-gray-400">{client.responsible}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-block text-xs px-2 py-0.5 rounded-full border font-medium ${fiscal.cls}`}>
                       {fiscal.label}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-400 whitespace-nowrap">
-                    {formatCurrency(client.monthlyRevenue)}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`text-xs font-bold ${
