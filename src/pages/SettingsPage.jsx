@@ -1,5 +1,12 @@
-import { Settings, Calendar, BarChart3, RotateCcw } from 'lucide-react'
-import { useSettings, REGIMES, CONFIGURABLE_FISCAL_ITEMS, DEFAULT_REGIME_ITEMS } from '../context/SettingsContext'
+import { Settings, Calendar, BarChart3, RotateCcw, Scale } from 'lucide-react'
+import {
+  useSettings,
+  REGIMES,
+  CONFIGURABLE_FISCAL_ITEMS,
+  DEFAULT_REGIME_ITEMS,
+  ALL_FISCAL_ITEMS,
+  DEFAULT_ITEM_WEIGHTS,
+} from '../context/SettingsContext'
 
 function Toggle({ checked, onChange, label, description }) {
   return (
@@ -65,13 +72,61 @@ function RegimeCard({ regime, selectedIds, onToggle, onReset }) {
   )
 }
 
+function WeightInput({ item, value, onChange, onReset }) {
+  const isModified = value !== DEFAULT_ITEM_WEIGHTS[item.id]
+  return (
+    <div className="flex items-center gap-3 p-3 bg-gray-800 border border-gray-700 rounded-xl">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-200">{item.label}</p>
+        {isModified && (
+          <p className="text-[10px] text-amber-400">
+            Padrão: {DEFAULT_ITEM_WEIGHTS[item.id]}
+          </p>
+        )}
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <input
+          type="number"
+          min={1}
+          max={100}
+          value={value}
+          onChange={e => {
+            const n = parseInt(e.target.value, 10)
+            if (!isNaN(n) && n >= 1 && n <= 100) onChange(n)
+          }}
+          className="w-16 text-center bg-gray-900 border border-gray-600 rounded-lg px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-amber-500/60 transition-colors"
+        />
+        {isModified && (
+          <button
+            onClick={onReset}
+            title="Restaurar padrão"
+            className="text-gray-500 hover:text-amber-400 transition-colors"
+          >
+            <RotateCcw size={13} />
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function SettingsPage() {
-  const { settings, update, toggleRegimeItem } = useSettings()
+  const { settings, update, toggleRegimeItem, setItemWeight } = useSettings()
 
   function resetRegime(regime) {
     const regimeItems = { ...settings.regimeItems, [regime]: [...(DEFAULT_REGIME_ITEMS[regime] ?? [])] }
     update({ regimeItems })
   }
+
+  function resetWeight(itemId) {
+    setItemWeight(itemId, DEFAULT_ITEM_WEIGHTS[itemId])
+  }
+
+  // Total weight for reference
+  const totalWeight = ALL_FISCAL_ITEMS.reduce(
+    (s, i) => s + (settings.itemWeights[i.id] ?? DEFAULT_ITEM_WEIGHTS[i.id]),
+    0
+  )
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
@@ -107,7 +162,7 @@ export default function SettingsPage() {
           <h2 className="text-sm font-bold text-gray-300 uppercase tracking-wider">Gestão Fiscal por Regime</h2>
         </div>
         <p className="text-xs text-gray-500 -mt-2">
-          Defina quais impostos serão monitorados na situação fiscal de cada regime tributário.
+          Defina quais impostos serão monitorados para cada regime tributário.
           Encargos trabalhistas (INSS, FGTS) e certidões negativas são sempre exibidos conforme o perfil da empresa.
         </p>
         <div className="grid gap-3">
@@ -121,6 +176,42 @@ export default function SettingsPage() {
             />
           ))}
         </div>
+      </section>
+
+      {/* Seção: Pesos dos Itens Fiscais */}
+      <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-5">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <Scale size={16} className="text-amber-400" />
+            <h2 className="text-sm font-bold text-gray-300 uppercase tracking-wider">Pesos dos Itens Fiscais</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">Total:</span>
+            <span className="text-xs font-bold text-amber-400">{totalWeight} pts</span>
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 -mt-2">
+          O peso de cada item determina sua influência no Score Fiscal (0–100).
+          Itens com peso maior impactam mais o resultado quando estão pendentes.
+        </p>
+        <div className="grid gap-2">
+          {ALL_FISCAL_ITEMS.map(item => (
+            <WeightInput
+              key={item.id}
+              item={item}
+              value={settings.itemWeights[item.id] ?? DEFAULT_ITEM_WEIGHTS[item.id]}
+              onChange={(w) => setItemWeight(item.id, w)}
+              onReset={() => resetWeight(item.id)}
+            />
+          ))}
+        </div>
+        <button
+          onClick={() => update({ itemWeights: { ...DEFAULT_ITEM_WEIGHTS } })}
+          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-amber-400 transition-colors"
+        >
+          <RotateCcw size={12} />
+          Restaurar todos os pesos para o padrão
+        </button>
       </section>
     </div>
   )

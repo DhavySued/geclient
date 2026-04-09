@@ -1,18 +1,18 @@
-// Itens fiscais fixos — aplicabilidade derivada do perfil da empresa + configurações
-import { DEFAULT_REGIME_ITEMS } from '../context/SettingsContext'
+// Itens fiscais — aplicabilidade e pesos configuráveis via SettingsContext
+import { DEFAULT_REGIME_ITEMS, DEFAULT_ITEM_WEIGHTS } from '../context/SettingsContext'
 
 const FISCAL_ITEMS = [
-  { id: 'inss',      label: 'INSS',             weight: 10 },
-  { id: 'inss_pl',   label: 'INSS Pró-Labore',  weight: 10 },
-  { id: 'fgts',      label: 'FGTS',             weight: 10 },
-  { id: 'das',       label: 'DAS',              weight: 15 },
-  { id: 'irpj',      label: 'IRPJ',             weight: 15 },
-  { id: 'csll',      label: 'CSLL',             weight: 10 },
-  { id: 'pis',       label: 'PIS',              weight:  8 },
-  { id: 'cofins',    label: 'COFINS',           weight:  8 },
-  { id: 'federal',   label: 'Sit. Federal',     weight: 15 },
-  { id: 'municipal', label: 'Sit. Municipal',   weight: 10 },
-  { id: 'estadual',  label: 'Sit. Estadual',    weight: 10 },
+  { id: 'inss',      label: 'INSS'           },
+  { id: 'inss_pl',   label: 'INSS Pró-Labore' },
+  { id: 'fgts',      label: 'FGTS'           },
+  { id: 'das',       label: 'DAS'            },
+  { id: 'irpj',      label: 'IRPJ'           },
+  { id: 'csll',      label: 'CSLL'           },
+  { id: 'pis',       label: 'PIS'            },
+  { id: 'cofins',    label: 'COFINS'         },
+  { id: 'federal',   label: 'Sit. Federal'   },
+  { id: 'municipal', label: 'Sit. Municipal' },
+  { id: 'estadual',  label: 'Sit. Estadual'  },
 ]
 
 function byId(id) {
@@ -20,17 +20,8 @@ function byId(id) {
 }
 
 /**
- * Retorna os itens de consulta fiscal aplicáveis ao perfil da empresa.
- *
- * Regras fixas (perfil):
- *  - Tem funcionários (CLT)  → INSS + FGTS
- *  - Tem pró-labore          → INSS Pró-Labore
- *  - Sempre                  → Sit. Federal
- *  - Tipo Serviço ou Misto   → Sit. Municipal
- *  - Tipo Comércio ou Misto  → Sit. Estadual
- *
- * Regras configuráveis (via SettingsContext):
- *  - regimeItems[regime] → lista de IDs dos impostos monitorados
+ * Retorna os itens aplicáveis ao perfil da empresa.
+ * - regimeItems: mapa regime → [ids] (de SettingsContext)
  */
 export function getApplicableItems(client, regimeItems) {
   const regime = client?.regime ?? ''
@@ -40,28 +31,29 @@ export function getApplicableItems(client, regimeItems) {
   if (client?.hasEmployees)  { result.push(byId('inss'));  result.push(byId('fgts')) }
   if (client?.hasProLabore)    result.push(byId('inss_pl'))
 
-  // Usa configuração persistida; cai para padrão se não informado
   const configMap = regimeItems ?? DEFAULT_REGIME_ITEMS
   const ids = configMap[regime] ?? []
   ids.forEach(id => result.push(byId(id)))
 
   result.push(byId('federal'))
-
-  if (['Serviço', 'Misto'].includes(tipo))   result.push(byId('municipal'))
-  if (['Comércio', 'Misto'].includes(tipo))  result.push(byId('estadual'))
+  if (['Serviço', 'Misto'].includes(tipo))  result.push(byId('municipal'))
+  if (['Comércio', 'Misto'].includes(tipo)) result.push(byId('estadual'))
 
   return result.filter(Boolean)
 }
 
 /**
- * Score fiscal ponderado: peso dos itens OK / peso total aplicável × 100
+ * Score fiscal ponderado.
+ * - itemWeights: mapa id → peso (de SettingsContext); cai para DEFAULT_ITEM_WEIGHTS
  */
-export function calcFiscalScore(checks, applicableItems) {
+export function calcFiscalScore(checks, applicableItems, itemWeights) {
   if (!applicableItems?.length) return null
-  const totalWeight = applicableItems.reduce((s, i) => s + (i.weight ?? 10), 0)
+  const weights = itemWeights ?? DEFAULT_ITEM_WEIGHTS
+  const w = (item) => Number(weights[item.id] ?? DEFAULT_ITEM_WEIGHTS[item.id] ?? 10)
+  const totalWeight = applicableItems.reduce((s, i) => s + w(i), 0)
   if (totalWeight === 0) return null
   const okWeight = applicableItems
     .filter(i => checks?.[i.id] === 'ok')
-    .reduce((s, i) => s + (i.weight ?? 10), 0)
+    .reduce((s, i) => s + w(i), 0)
   return Math.round((okWeight / totalWeight) * 100)
 }

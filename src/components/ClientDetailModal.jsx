@@ -561,7 +561,7 @@ function FiscalHistoryTab({ client }) {
             const isExpanded     = expanded[entry.month] ?? isCurrentMonth
             const isEditingThis  = editingNote === entry.month
             const score          = applicableItems.length > 0
-              ? calcFiscalScore(entry.checks ?? {}, applicableItems)
+              ? calcFiscalScore(entry.checks ?? {}, applicableItems, settings.itemWeights)
               : null
 
             return (

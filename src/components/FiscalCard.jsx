@@ -54,7 +54,7 @@ export default function FiscalCard({ client, index, onOpen, selectedMonth }) {
     ? (client.fiscalHistory ?? []).find(h => h.month === selectedMonth)
     : null
   const fiscalScore = fiscalEntry && applicableItems.length > 0
-    ? calcFiscalScore(fiscalEntry.checks ?? {}, applicableItems)
+    ? calcFiscalScore(fiscalEntry.checks ?? {}, applicableItems, settings.itemWeights)
     : null
 
   return (
