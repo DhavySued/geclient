@@ -2,8 +2,8 @@ import { Draggable } from '@hello-pangea/dnd'
 import { AlertTriangle, FileX, Clock, User } from 'lucide-react'
 import LevelBadge from './LevelBadge'
 import { calcFiscalScore, getApplicableItems } from '../hooks/useFiscalItems'
-import { useSettings } from '../context/SettingsContext'
 import { useFiscalItemsCtx } from '../context/FiscalItemsContext'
+import { useFiscalConfig } from '../context/FiscalConfigContext'
 
 const taxColors = {
   INSS: 'bg-red-500/20 text-red-300 border-red-500/30',
@@ -48,10 +48,10 @@ function ScoreBar({ score }) {
 
 export default function FiscalCard({ client, index, onOpen, selectedMonth }) {
   const isPremium = client.level === 'Premium'
-  const { settings } = useSettings()
-  const { fiscalItems } = useFiscalItemsCtx()
+  const { fiscalItems }                      = useFiscalItemsCtx()
+  const { regimeItems, conditionItems }      = useFiscalConfig()
 
-  const applicableItems = getApplicableItems(client, settings.regimeItems, fiscalItems)
+  const applicableItems = getApplicableItems(client, fiscalItems, regimeItems, conditionItems)
   const fiscalEntry = selectedMonth
     ? (client.fiscalHistory ?? []).find(h => h.month === selectedMonth)
     : null

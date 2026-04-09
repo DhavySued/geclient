@@ -2,30 +2,15 @@ import { createContext, useContext, useState, useCallback } from 'react'
 
 const STORAGE_KEY = 'geclient_settings'
 
-export const REGIMES = ['MEI', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real']
-
-export const DEFAULT_REGIME_ITEMS = {
-  'MEI':              ['das'],
-  'Simples Nacional': ['das'],
-  'Lucro Presumido':  ['irpj', 'csll', 'pis', 'cofins'],
-  'Lucro Real':       ['irpj', 'csll', 'pis', 'cofins'],
-}
-
 const DEFAULTS = {
   showUndatedInCalendar: true,
-  regimeItems: DEFAULT_REGIME_ITEMS,
 }
 
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return DEFAULTS
-    const saved = JSON.parse(raw)
-    return {
-      ...DEFAULTS,
-      ...saved,
-      regimeItems: { ...DEFAULTS.regimeItems, ...(saved.regimeItems ?? {}) },
-    }
+    return { ...DEFAULTS, ...JSON.parse(raw) }
   } catch {
     return DEFAULTS
   }
@@ -48,21 +33,8 @@ export function SettingsProvider({ children }) {
     })
   }, [])
 
-  const toggleRegimeItem = useCallback((regime, itemId) => {
-    setSettings(prev => {
-      const current = prev.regimeItems[regime] ?? []
-      const next = current.includes(itemId)
-        ? current.filter(id => id !== itemId)
-        : [...current, itemId]
-      const regimeItems = { ...prev.regimeItems, [regime]: next }
-      const updated = { ...prev, regimeItems }
-      persist(updated)
-      return updated
-    })
-  }, [])
-
   return (
-    <SettingsContext.Provider value={{ settings, update, toggleRegimeItem }}>
+    <SettingsContext.Provider value={{ settings, update }}>
       {children}
     </SettingsContext.Provider>
   )

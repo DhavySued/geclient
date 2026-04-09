@@ -4,6 +4,7 @@ import { TasksProvider } from './context/TasksContext'
 import { UsersProvider } from './context/UsersContext'
 import { SettingsProvider } from './context/SettingsContext'
 import { FiscalItemsProvider } from './context/FiscalItemsContext'
+import { FiscalConfigProvider } from './context/FiscalConfigContext'
 import Sidebar from './components/Sidebar'
 import ClientDetailModal from './components/ClientDetailModal'
 import FiscalPage from './pages/FiscalPage'
@@ -78,13 +79,15 @@ export default function App() {
   return (
     <SettingsProvider>
       <FiscalItemsProvider>
-        <ClientsProvider>
-          <UsersProvider>
-            <TasksProvider>
-              <AppContent />
-            </TasksProvider>
-          </UsersProvider>
-        </ClientsProvider>
+        <FiscalConfigProvider>
+          <ClientsProvider>
+            <UsersProvider>
+              <TasksProvider>
+                <AppContent />
+              </TasksProvider>
+            </UsersProvider>
+          </ClientsProvider>
+        </FiscalConfigProvider>
       </FiscalItemsProvider>
     </SettingsProvider>
   )

@@ -8,8 +8,8 @@ import { useTasks } from '../context/TasksContext'
 import { useUsers } from '../context/UsersContext'
 import { useClients } from '../context/ClientsContext'
 import { calcFiscalScore, getApplicableItems } from '../hooks/useFiscalItems'
-import { useSettings } from '../context/SettingsContext'
 import { useFiscalItemsCtx } from '../context/FiscalItemsContext'
+import { useFiscalConfig } from '../context/FiscalConfigContext'
 import LevelBadge from './LevelBadge'
 import HealthBar from './HealthBar'
 import RichTextEditor from './RichTextEditor'
@@ -477,9 +477,9 @@ function FiscalScoreBar({ score }) {
 
 function FiscalHistoryTab({ client }) {
   const { updateClient } = useClients()
-  const { settings }     = useSettings()
-  const { fiscalItems }  = useFiscalItemsCtx()
-  const applicableItems  = getApplicableItems(client, settings.regimeItems, fiscalItems)
+  const { fiscalItems }                 = useFiscalItemsCtx()
+  const { regimeItems, conditionItems } = useFiscalConfig()
+  const applicableItems = getApplicableItems(client, fiscalItems, regimeItems, conditionItems)
   const currentMonth           = new Date().toISOString().slice(0, 7)
   const history                = client.fiscalHistory ?? []
   const hasCurrentMonth        = history.some(h => h.month === currentMonth)

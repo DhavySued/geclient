@@ -1,37 +1,50 @@
-import { DEFAULT_REGIME_ITEMS } from '../context/SettingsContext'
-import { PROFILE_BASED_IDS } from '../context/FiscalItemsContext'
-
 /**
- * Retorna os itens aplicáveis ao perfil da empresa.
- * - regimeItems: mapa regime → [ids] (de SettingsContext)
- * - fiscalItems: lista completa de itens do banco (de FiscalItemsContext)
+ * getApplicableItems — retorna os itens fiscais aplicáveis a uma empresa.
+ *
+ * Fontes (todas vêm do banco via contextos):
+ *   fiscalItems    : item[] — tabela fiscal_items completa
+ *   regimeItemIds  : { [regime]: string[] } — de regime_fiscal_items
+ *   conditionItemIds: { employees: string[], pro_labore: string[] } — de condition_fiscal_items
+ *
+ * Regras sempre automáticas (tipo de atividade):
+ *   Sit. Federal   → sempre
+ *   Sit. Municipal → Serviço ou Misto
+ *   Sit. Estadual  → Comércio ou Misto
  */
-export function getApplicableItems(client, regimeItems, fiscalItems = []) {
+export function getApplicableItems(client, fiscalItems = [], regimeItemIds = {}, conditionItemIds = {}) {
   const regime = client?.regime ?? ''
   const tipo   = client?.tipo   ?? ''
   const byId   = id => fiscalItems.find(i => i.id === id)
+
   const result = []
+  const seen   = new Set()
 
-  // Itens derivados do perfil da empresa
-  if (client?.hasEmployees) { result.push(byId('inss')); result.push(byId('fgts')) }
-  if (client?.hasProLabore)   result.push(byId('inss_pl'))
+  function add(item) {
+    if (item && !seen.has(item.id)) { seen.add(item.id); result.push(item) }
+  }
 
-  // Itens configurados por regime
-  const configMap = regimeItems ?? DEFAULT_REGIME_ITEMS
-  const ids = configMap[regime] ?? []
-  ids.forEach(id => result.push(byId(id)))
+  // 1. Condições de folha
+  if (client?.hasEmployees) {
+    (conditionItemIds.employees  ?? []).forEach(id => add(byId(id)))
+  }
+  if (client?.hasProLabore) {
+    (conditionItemIds.pro_labore ?? []).forEach(id => add(byId(id)))
+  }
 
-  // Certidões (sempre presentes, condicionadas ao tipo de atividade)
-  result.push(byId('federal'))
-  if (['Serviço', 'Misto'].includes(tipo))  result.push(byId('municipal'))
-  if (['Comércio', 'Misto'].includes(tipo)) result.push(byId('estadual'))
+  // 2. Regime tributário
+  ;(regimeItemIds[regime] ?? []).forEach(id => add(byId(id)))
+
+  // 3. Certidões — sempre automáticas pelo tipo de atividade
+  add(byId('federal'))
+  if (['Serviço', 'Misto'].includes(tipo))  add(byId('municipal'))
+  if (['Comércio', 'Misto'].includes(tipo)) add(byId('estadual'))
 
   return result.filter(Boolean)
 }
 
 /**
- * Score fiscal ponderado: peso dos itens OK / peso total × 100
- * Os pesos vêm embutidos nos próprios itens (campo weight do banco).
+ * calcFiscalScore — score ponderado 0-100.
+ * Pesos vêm embutidos nos itens (campo weight do banco).
  */
 export function calcFiscalScore(checks, applicableItems) {
   if (!applicableItems?.length) return null
@@ -42,5 +55,3 @@ export function calcFiscalScore(checks, applicableItems) {
     .reduce((s, i) => s + (i.weight ?? 10), 0)
   return Math.round((okWeight / totalWeight) * 100)
 }
-
-export { PROFILE_BASED_IDS }
