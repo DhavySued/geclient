@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ChevronLeft, ChevronRight, Calendar, Plus, Building2, Flag } from 'lucide-react'
 import { useTasks } from '../context/TasksContext'
 import { useClients } from '../context/ClientsContext'
+import { useSettings } from '../context/SettingsContext'
 
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -40,6 +41,7 @@ export default function CalendarPage({ onOpenClient }) {
 
   const { tasks, addTask, deleteTask, updateTask } = useTasks()
   const { clients } = useClients()
+  const { settings } = useSettings()
   const clientMap = Object.fromEntries(clients.map(c => [c.id, c]))
 
   // Quick-add state
@@ -355,7 +357,7 @@ export default function CalendarPage({ onOpenClient }) {
           </div>
 
           {/* Tasks without date */}
-          <div className="border-t border-gray-800 pt-3">
+          {settings.showUndatedInCalendar && <div className="border-t border-gray-800 pt-3">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 px-1">
               Sem data ({noDateTasks.length})
             </p>
@@ -413,7 +415,7 @@ export default function CalendarPage({ onOpenClient }) {
                 })}
               </div>
             )}
-          </div>
+          </div>}
 
         </div>
       </div>

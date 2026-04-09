@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ClientsProvider, useClients } from './context/ClientsContext'
 import { TasksProvider } from './context/TasksContext'
 import { UsersProvider } from './context/UsersContext'
+import { SettingsProvider } from './context/SettingsContext'
 import Sidebar from './components/Sidebar'
 import ClientDetailModal from './components/ClientDetailModal'
 import FiscalPage from './pages/FiscalPage'
@@ -11,6 +12,7 @@ import AcompanhamentoPage from './pages/AcompanhamentoPage'
 import TasksPage from './pages/TasksPage'
 import CalendarPage from './pages/CalendarPage'
 import UsersPage from './pages/UsersPage'
+import SettingsPage from './pages/SettingsPage'
 import { Loader2, AlertTriangle } from 'lucide-react'
 
 function AppContent() {
@@ -59,6 +61,7 @@ function AppContent() {
           {activePage === 'tasks'     && <TasksPage     onOpenClient={setSelectedClient} />}
           {activePage === 'calendar'  && <CalendarPage  onOpenClient={setSelectedClient} />}
           {activePage === 'users'     && <UsersPage />}
+          {activePage === 'settings'  && <SettingsPage />}
         </div>
       </main>
 
@@ -72,12 +75,14 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ClientsProvider>
-      <UsersProvider>
-        <TasksProvider>
-          <AppContent />
-        </TasksProvider>
-      </UsersProvider>
-    </ClientsProvider>
+    <SettingsProvider>
+      <ClientsProvider>
+        <UsersProvider>
+          <TasksProvider>
+            <AppContent />
+          </TasksProvider>
+        </UsersProvider>
+      </ClientsProvider>
+    </SettingsProvider>
   )
 }

@@ -1,4 +1,4 @@
-import { BarChart3, Users, CalendarDays, Building2, ChevronRight, CheckSquare, Calendar, UserCog } from 'lucide-react'
+import { BarChart3, Users, CalendarDays, Building2, ChevronRight, CheckSquare, Calendar, UserCog, Settings } from 'lucide-react'
 import { useTasks } from '../context/TasksContext'
 
 const kanbans = [
@@ -46,6 +46,12 @@ const tools = [
     icon: UserCog,
     label: 'Usuários',
     description: 'Equipe do escritório',
+  },
+  {
+    id: 'settings',
+    icon: Settings,
+    label: 'Configurações',
+    description: 'Preferências do sistema',
   },
 ]
 

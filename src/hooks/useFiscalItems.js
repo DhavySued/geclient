@@ -1,4 +1,5 @@
-// Itens fiscais fixos — aplicabilidade 100% derivada do perfil da empresa
+// Itens fiscais fixos — aplicabilidade derivada do perfil da empresa + configurações
+import { DEFAULT_REGIME_ITEMS } from '../context/SettingsContext'
 
 const FISCAL_ITEMS = [
   { id: 'inss',      label: 'INSS',             weight: 10 },
@@ -21,16 +22,17 @@ function byId(id) {
 /**
  * Retorna os itens de consulta fiscal aplicáveis ao perfil da empresa.
  *
- * Regras:
+ * Regras fixas (perfil):
  *  - Tem funcionários (CLT)  → INSS + FGTS
  *  - Tem pró-labore          → INSS Pró-Labore
- *  - Simples Nacional / MEI  → DAS
- *  - Lucro Presumido / Real  → IRPJ + CSLL + PIS + COFINS
  *  - Sempre                  → Sit. Federal
  *  - Tipo Serviço ou Misto   → Sit. Municipal
  *  - Tipo Comércio ou Misto  → Sit. Estadual
+ *
+ * Regras configuráveis (via SettingsContext):
+ *  - regimeItems[regime] → lista de IDs dos impostos monitorados
  */
-export function getApplicableItems(client) {
+export function getApplicableItems(client, regimeItems) {
   const regime = client?.regime ?? ''
   const tipo   = client?.tipo   ?? ''
   const result = []
@@ -38,11 +40,10 @@ export function getApplicableItems(client) {
   if (client?.hasEmployees)  { result.push(byId('inss'));  result.push(byId('fgts')) }
   if (client?.hasProLabore)    result.push(byId('inss_pl'))
 
-  if (['Simples Nacional', 'MEI'].includes(regime))
-    result.push(byId('das'))
-
-  if (['Lucro Presumido', 'Lucro Real'].includes(regime))
-    result.push(byId('irpj'), byId('csll'), byId('pis'), byId('cofins'))
+  // Usa configuração persistida; cai para padrão se não informado
+  const configMap = regimeItems ?? DEFAULT_REGIME_ITEMS
+  const ids = configMap[regime] ?? []
+  ids.forEach(id => result.push(byId(id)))
 
   result.push(byId('federal'))
 

@@ -8,6 +8,7 @@ import { useTasks } from '../context/TasksContext'
 import { useUsers } from '../context/UsersContext'
 import { useClients } from '../context/ClientsContext'
 import { calcFiscalScore, getApplicableItems } from '../hooks/useFiscalItems'
+import { useSettings } from '../context/SettingsContext'
 import LevelBadge from './LevelBadge'
 import HealthBar from './HealthBar'
 import RichTextEditor from './RichTextEditor'
@@ -475,7 +476,8 @@ function FiscalScoreBar({ score }) {
 
 function FiscalHistoryTab({ client }) {
   const { updateClient } = useClients()
-  const applicableItems  = getApplicableItems(client)
+  const { settings }     = useSettings()
+  const applicableItems  = getApplicableItems(client, settings.regimeItems)
   const currentMonth           = new Date().toISOString().slice(0, 7)
   const history                = client.fiscalHistory ?? []
   const hasCurrentMonth        = history.some(h => h.month === currentMonth)
