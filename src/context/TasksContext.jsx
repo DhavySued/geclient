@@ -91,14 +91,21 @@ async function maybeSpawnRecurring() {
 export function TasksProvider({ children }) {
   const [tasks,   setTasks]   = useState([])
   const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(null)
 
   const fetchTasks = useCallback(async () => {
-    const { data, error } = await supabase
+    const { data, error: fetchErr } = await supabase
       .from('tasks')
       .select('*')
       .order('created_at', { ascending: false })
-    if (error) { console.error('tasks fetch error:', error); setLoading(false); return }
+    if (fetchErr) {
+      console.error('tasks fetch error:', fetchErr)
+      setError(fetchErr.message)
+      setLoading(false)
+      return
+    }
     setTasks(data.map(taskFromDb))
+    setError(null)
     setLoading(false)
   }, [])
 
@@ -177,7 +184,7 @@ export function TasksProvider({ children }) {
   }, [])
 
   return (
-    <TasksContext.Provider value={{ tasks, loading, addTask, updateTask, deleteTask }}>
+    <TasksContext.Provider value={{ tasks, loading, error, addTask, updateTask, deleteTask }}>
       {children}
     </TasksContext.Provider>
   )

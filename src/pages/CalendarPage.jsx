@@ -47,6 +47,8 @@ export default function CalendarPage({ onOpenClient }) {
   const [quickTime,     setQuickTime]     = useState('')
   const [quickPriority, setQuickPriority] = useState('media')
   const [quickClient,   setQuickClient]   = useState('')
+  const [quickSaving,   setQuickSaving]   = useState(false)
+  const [quickError,    setQuickError]    = useState('')
 
   function prevMonth() {
     if (month === 0) { setMonth(11); setYear(y => y - 1) }
@@ -89,20 +91,28 @@ export default function CalendarPage({ onOpenClient }) {
 
   const selectedTasks = tasksByDate[selectedDate] || []
 
-  function handleQuickAdd(e) {
+  async function handleQuickAdd(e) {
     e.preventDefault()
     if (!quickTitle.trim()) return
-    addTask({
-      title:    quickTitle.trim(),
-      dueDate:  selectedDate,
-      time:     quickTime || null,
-      priority: quickPriority,
-      clientId: quickClient || null,
-    })
-    setQuickTitle('')
-    setQuickTime('')
-    setQuickPriority('media')
-    setQuickClient('')
+    setQuickSaving(true)
+    setQuickError('')
+    try {
+      await addTask({
+        title:    quickTitle.trim(),
+        dueDate:  selectedDate,
+        time:     quickTime || null,
+        priority: quickPriority,
+        clientId: quickClient || null,
+      })
+      setQuickTitle('')
+      setQuickTime('')
+      setQuickPriority('media')
+      setQuickClient('')
+    } catch (err) {
+      setQuickError(err.message || 'Erro ao salvar.')
+    } finally {
+      setQuickSaving(false)
+    }
   }
 
   return (
@@ -262,12 +272,16 @@ export default function CalendarPage({ onOpenClient }) {
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
+              {quickError && (
+                <p className="text-[10px] text-red-400 bg-red-950/40 border border-red-500/30 rounded-lg px-2 py-1.5">{quickError}</p>
+              )}
               <button
                 type="submit"
-                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-gray-900 text-xs font-semibold transition-all"
+                disabled={quickSaving}
+                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-gray-900 text-xs font-semibold transition-all"
               >
                 <Plus size={13} />
-                Adicionar
+                {quickSaving ? 'Salvando…' : 'Adicionar'}
               </button>
             </form>
           </div>

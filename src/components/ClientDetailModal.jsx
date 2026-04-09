@@ -217,25 +217,35 @@ function TasksTab({ client }) {
   const [assigned,      setAssigned]      = useState('')
   const [showForm,      setShowForm]      = useState(false)
   const [repeatMonthly, setRepeatMonthly] = useState(false)
+  const [saving,        setSaving]        = useState(false)
+  const [saveError,     setSaveError]     = useState('')
 
-  function handleAdd(e) {
+  async function handleAdd(e) {
     e.preventDefault()
     if (!title.trim()) return
-    const isRecurring = repeatMonthly && !!dueDate
-    addTask({
-      clientId:        client.id,
-      title:           title.trim(),
-      description:     desc,
-      dueDate:         isRecurring ? null : (dueDate || null),
-      time:            time || null,
-      priority,
-      assignedTo:      assigned || null,
-      repeatMonthly:   isRecurring,
-      repeatDay:       isRecurring ? parseInt(dueDate.split('-')[2]) : undefined,
-      lastSpawnedMonth: isRecurring ? null : undefined,
-    })
-    setTitle(''); setDesc(''); setDueDate(''); setTime('')
-    setPriority('media'); setAssigned(''); setRepeatMonthly(false); setShowForm(false)
+    setSaving(true)
+    setSaveError('')
+    try {
+      const isRecurring = repeatMonthly && !!dueDate
+      await addTask({
+        clientId:        client.id,
+        title:           title.trim(),
+        description:     desc,
+        dueDate:         isRecurring ? null : (dueDate || null),
+        time:            time || null,
+        priority,
+        assignedTo:      assigned || null,
+        repeatMonthly:   isRecurring,
+        repeatDay:       isRecurring ? parseInt(dueDate.split('-')[2]) : undefined,
+        lastSpawnedMonth: isRecurring ? null : undefined,
+      })
+      setTitle(''); setDesc(''); setDueDate(''); setTime('')
+      setPriority('media'); setAssigned(''); setRepeatMonthly(false); setShowForm(false)
+    } catch (err) {
+      setSaveError(err.message || 'Erro ao salvar tarefa.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   function handleToggle(task) {
@@ -321,9 +331,12 @@ function TasksTab({ client }) {
             </div>
           </label>
 
+          {saveError && (
+            <p className="text-xs text-red-400 bg-red-950/40 border border-red-500/30 rounded-lg px-3 py-2">{saveError}</p>
+          )}
           <div className="flex gap-2">
-            <button type="submit" className="flex-1 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-gray-900 text-sm font-semibold transition-all">
-              Adicionar
+            <button type="submit" disabled={saving} className="flex-1 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-gray-900 text-sm font-semibold transition-all">
+              {saving ? 'Salvando…' : 'Adicionar'}
             </button>
             <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg border border-gray-700 text-gray-400 hover:text-gray-200 text-sm transition-all">
               Cancelar
