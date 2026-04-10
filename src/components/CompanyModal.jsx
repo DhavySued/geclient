@@ -4,32 +4,19 @@ import { X, Building2 } from 'lucide-react'
 const REGIMES = ['Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'MEI']
 const LEVELS  = ['Standard', 'Gold', 'Premium']
 const TIPOS   = ['Serviço', 'Comércio', 'Misto']
-const FISCAL_STATUSES = [
-  { value: 'sem_consulta',       label: 'Sem Consulta' },
-  { value: 'com_pendencia',      label: 'Com Pendência' },
-  { value: 'comunicado_cliente', label: 'Comunicado ao Cliente' },
-  { value: 'em_regularizacao',   label: 'Em Regularização' },
-  { value: 'resolvido',          label: 'Resolvido' },
-  { value: 'sem_pendencia',      label: 'Sem Pendência' },
-]
 const CX_STATUSES = [
+  { value: 'cliente_novo', label: 'Cliente Novo' },
   { value: 'promotor',    label: 'Promotor' },
   { value: 'neutro',      label: 'Neutro' },
   { value: 'risco_churn', label: 'Risco de Churn' },
   { value: 'detrator',    label: 'Detrator' },
 ]
-const MONTHLY_STATUSES = [
-  { value: 'pendente',    label: 'Pendente' },
-  { value: 'processando', label: 'Processando' },
-  { value: 'concluido',   label: 'Concluído' },
-  { value: 'atrasado',    label: 'Atrasado' },
-]
 
 const EMPTY = {
   name: '', cnpj: '', level: 'Standard', regime: 'Simples Nacional', tipo: 'Serviço',
-  responsible: '', healthScore: '70',
+  responsible: '',
   hasEmployees: false, hasProLabore: false,
-  fiscalStatus: 'sem_consulta', cxStatus: 'neutro', monthlyStatus: 'pendente', notes: '',
+  cxStatus: 'cliente_novo', notes: '',
 }
 
 function applyCnpjMask(value) {
@@ -54,12 +41,9 @@ export default function CompanyModal({ client, onSave, onClose }) {
         regime: client.regime || 'Simples Nacional',
         tipo: client.tipo || 'Serviço',
         responsible: client.responsible || '',
-        healthScore: client.healthScore != null ? String(client.healthScore) : '70',
         hasEmployees: client.hasEmployees ?? false,
         hasProLabore: client.hasProLabore ?? false,
-        fiscalStatus: client.fiscalStatus || 'sem_consulta',
-        cxStatus: client.cxStatus || 'neutro',
-        monthlyStatus: client.monthlyStatus || 'pendente',
+        cxStatus: client.cxStatus || 'cliente_novo',
         notes: client.notes || '',
       })
     } else {
@@ -79,8 +63,6 @@ export default function CompanyModal({ client, onSave, onClose }) {
     if (!form.cnpj.trim()) e.cnpj = 'Campo obrigatório'
     else if (form.cnpj.replace(/\D/g, '').length < 11) e.cnpj = 'CNPJ/CPF inválido'
     if (!form.responsible.trim()) e.responsible = 'Campo obrigatório'
-    const hs = Number(form.healthScore)
-    if (form.healthScore !== '' && (isNaN(hs) || hs < 0 || hs > 100)) e.healthScore = 'Entre 0 e 100'
     return e
   }
 
@@ -88,10 +70,7 @@ export default function CompanyModal({ client, onSave, onClose }) {
     e.preventDefault()
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); return }
-    onSave({
-      ...form,
-      healthScore: Number(form.healthScore) || 70,
-    })
+    onSave({ ...form })
   }
 
   return (
@@ -186,39 +165,11 @@ export default function CompanyModal({ client, onSave, onClose }) {
               />
             </div>
 
-            {/* Health Score */}
-            <div>
-              <Label text="Health Score (0–100)" />
-              <Input
-                type="number"
-                value={form.healthScore}
-                onChange={v => set('healthScore', v)}
-                placeholder="70"
-                error={errors.healthScore}
-              />
-            </div>
-
-            {/* Fiscal Status */}
-            <div>
-              <Label text="Situação Fiscal" />
-              <Select value={form.fiscalStatus} onChange={v => set('fiscalStatus', v)}>
-                {FISCAL_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </Select>
-            </div>
-
             {/* CX Status */}
-            <div>
+            <div className="col-span-2">
               <Label text="Status CX" />
               <Select value={form.cxStatus} onChange={v => set('cxStatus', v)}>
                 {CX_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </Select>
-            </div>
-
-            {/* Monthly Status */}
-            <div>
-              <Label text="Status Mensal" />
-              <Select value={form.monthlyStatus} onChange={v => set('monthlyStatus', v)}>
-                {MONTHLY_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </Select>
             </div>
 

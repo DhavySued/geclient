@@ -1,7 +1,6 @@
 import { Draggable } from '@hello-pangea/dnd'
 import { User, TrendingUp, FileText } from 'lucide-react'
 import LevelBadge from './LevelBadge'
-import HealthBar from './HealthBar'
 
 function formatCurrency(v) {
   return v ? `R$ ${Number(v).toLocaleString('pt-BR')}` : null
@@ -43,9 +42,6 @@ export default function MonthlyCard({ client, index, onOpen }) {
               {client.name}
             </p>
           </div>
-
-          {/* Health */}
-          <HealthBar score={client.healthScore} />
 
           {/* Revenue */}
           {client.monthlyRevenue > 0 && (

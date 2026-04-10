@@ -1,4 +1,4 @@
-import { BarChart3, Users, CalendarDays, Building2, ChevronRight, CheckSquare, Calendar, UserCog, Settings } from 'lucide-react'
+import { BarChart3, Users, Building2, ChevronRight, CheckSquare, Calendar, UserCog, Settings } from 'lucide-react'
 import { useTasks } from '../context/TasksContext'
 
 const kanbans = [
@@ -19,12 +19,6 @@ const kanbans = [
     icon: Users,
     label: 'Experiência CX',
     description: 'Health Score',
-  },
-  {
-    id: 'mensal',
-    icon: CalendarDays,
-    label: 'Acompanhamento',
-    description: 'Controle mensal',
   },
 ]
 

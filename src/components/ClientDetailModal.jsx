@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   X, User, Clock, FileText, AlertTriangle,
-  Plus, BarChart3, Users, CalendarDays, Briefcase, Activity,
+  Plus, BarChart3, Users, Briefcase, Activity,
   History, Pencil, Check, ChevronDown, ChevronUp, Repeat,
 } from 'lucide-react'
 import { useTasks } from '../context/TasksContext'
@@ -11,7 +11,6 @@ import { calcFiscalScore, getApplicableItems } from '../hooks/useFiscalItems'
 import { useFiscalItemsCtx } from '../context/FiscalItemsContext'
 import { useFiscalConfig } from '../context/FiscalConfigContext'
 import LevelBadge from './LevelBadge'
-import HealthBar from './HealthBar'
 import RichTextEditor from './RichTextEditor'
 import TaskItem, { TemplateCard } from './TaskItem'
 import DatePicker from './DatePicker'
@@ -34,10 +33,8 @@ const FISCAL_COLOR = {
   resolvido:          'text-teal-400 bg-teal-500/15 border-teal-500/30',
   sem_pendencia:      'text-emerald-400 bg-emerald-500/15 border-emerald-500/30',
 }
-const CX_LABEL      = { promotor: 'Promotor', neutro: 'Neutro', risco_churn: 'Risco Churn', detrator: 'Detrator' }
-const CX_COLOR      = { promotor: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30', neutro: 'text-blue-400 bg-blue-500/15 border-blue-500/30', risco_churn: 'text-orange-400 bg-orange-500/15 border-orange-500/30', detrator: 'text-red-400 bg-red-500/15 border-red-500/30' }
-const MONTHLY_LABEL = { pendente: 'Pendente', processando: 'Processando', concluido: 'Concluído', atrasado: 'Atrasado' }
-const MONTHLY_COLOR = { pendente: 'text-gray-400 bg-gray-700/40 border-gray-600/40', processando: 'text-blue-400 bg-blue-500/15 border-blue-500/30', concluido: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30', atrasado: 'text-red-400 bg-red-500/15 border-red-500/30' }
+const CX_LABEL = { cliente_novo: 'Cliente Novo', promotor: 'Promotor', neutro: 'Neutro', risco_churn: 'Risco Churn', detrator: 'Detrator' }
+const CX_COLOR = { cliente_novo: 'text-amber-400 bg-amber-500/15 border-amber-500/30', promotor: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30', neutro: 'text-blue-400 bg-blue-500/15 border-blue-500/30', risco_churn: 'text-orange-400 bg-orange-500/15 border-orange-500/30', detrator: 'text-red-400 bg-red-500/15 border-red-500/30' }
 
 const TAX_COLOR = {
   INSS:        'bg-red-500/20 text-red-300 border-red-500/30',
@@ -88,11 +85,10 @@ function OverviewTab({ client }) {
     <div className="space-y-5">
       <div>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Status nos Kanbans</p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {[
-            { icon: BarChart3,    label: 'Fiscal',   badge: FISCAL_LABEL[client.fiscalStatus],   color: FISCAL_COLOR[client.fiscalStatus] },
-            { icon: Users,        label: 'CX',        badge: CX_LABEL[client.cxStatus],           color: CX_COLOR[client.cxStatus] },
-            { icon: CalendarDays, label: 'Mensal',    badge: MONTHLY_LABEL[client.monthlyStatus], color: MONTHLY_COLOR[client.monthlyStatus] },
+            { icon: BarChart3, label: 'Fiscal', badge: FISCAL_LABEL[client.fiscalStatus], color: FISCAL_COLOR[client.fiscalStatus] },
+            { icon: Users,     label: 'CX',     badge: CX_LABEL[client.cxStatus],         color: CX_COLOR[client.cxStatus] },
           ].map(({ icon: Icon, label, badge, color }) => (
             <div key={label} className="bg-gray-800/60 rounded-xl p-3 border border-gray-700/50">
               <div className="flex items-center gap-1.5 mb-2">
@@ -102,13 +98,6 @@ function OverviewTab({ client }) {
               <StatusBadge label={badge || '—'} colorClass={color || ''} />
             </div>
           ))}
-        </div>
-      </div>
-
-      <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Health Score</p>
-        <div className="bg-gray-800/60 rounded-xl p-4 border border-gray-700/50">
-          <HealthBar score={client.healthScore} />
         </div>
       </div>
 
@@ -177,16 +166,24 @@ function AnalysisTab({ client }) {
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Análise geral</p>
         </div>
         <div className="bg-gray-800/60 rounded-xl p-4 border border-gray-700/50 space-y-2">
-          <AnalysisRow label="Situação fiscal"    value={FISCAL_LABEL[client.fiscalStatus]}    colorClass={FISCAL_COLOR[client.fiscalStatus]} />
-          <AnalysisRow label="Relacionamento CX"  value={CX_LABEL[client.cxStatus]}            colorClass={CX_COLOR[client.cxStatus]} />
-          <AnalysisRow label="Entrega mensal"     value={MONTHLY_LABEL[client.monthlyStatus]}  colorClass={MONTHLY_COLOR[client.monthlyStatus]} />
+          <AnalysisRow label="Situação fiscal"   value={FISCAL_LABEL[client.fiscalStatus]} colorClass={FISCAL_COLOR[client.fiscalStatus]} />
+          <AnalysisRow label="Relacionamento CX" value={CX_LABEL[client.cxStatus]}        colorClass={CX_COLOR[client.cxStatus]} />
           <AnalysisRow
-            label="Health Score"
-            value={`${client.healthScore ?? 70}/100`}
+            label="Score Fiscal"
+            value={`${client.scoreFiscal ?? 0}/100`}
             colorClass={
-              client.healthScore >= 80 ? 'text-emerald-400' :
-              client.healthScore >= 55 ? 'text-yellow-400' :
-              client.healthScore >= 30 ? 'text-orange-400' : 'text-red-400'
+              (client.scoreFiscal ?? 0) >= 80 ? 'text-emerald-400' :
+              (client.scoreFiscal ?? 0) >= 55 ? 'text-yellow-400' :
+              (client.scoreFiscal ?? 0) >= 30 ? 'text-orange-400' : 'text-red-400'
+            }
+          />
+          <AnalysisRow
+            label="Score CX"
+            value={`${client.scoreCx ?? 0}/100`}
+            colorClass={
+              (client.scoreCx ?? 0) >= 80 ? 'text-emerald-400' :
+              (client.scoreCx ?? 0) >= 55 ? 'text-yellow-400' :
+              (client.scoreCx ?? 0) >= 30 ? 'text-orange-400' : 'text-red-400'
             }
           />
         </div>

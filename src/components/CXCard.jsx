@@ -1,7 +1,6 @@
 import { Draggable } from '@hello-pangea/dnd'
 import { MessageSquare, User, Clock } from 'lucide-react'
 import LevelBadge from './LevelBadge'
-import HealthBar from './HealthBar'
 
 function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
@@ -32,9 +31,6 @@ export default function CXCard({ client, index, onOpen }) {
             </p>
             <p className="text-xs text-gray-500 mt-0.5">{client.regime}</p>
           </div>
-
-          {/* Health Bar */}
-          <HealthBar score={client.healthScore} />
 
           {/* Notes */}
           {client.notes && (

@@ -10,6 +10,13 @@ import FilterBar from '../components/FilterBar'
 
 const DEFAULT_COLUMNS = [
   {
+    id: 'cliente_novo',
+    label: 'Cliente Novo',
+    bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-400',
+    dot: 'bg-amber-400', headerBg: 'bg-amber-950/40',
+    description: 'Recém cadastrado · Onboarding',
+  },
+  {
     id: 'promotor',
     label: 'Promotor (Uau)',
     bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400',
@@ -96,7 +103,7 @@ export default function CXPage({ onOpenClient }) {
       )}
 
       {/* Stats Row */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-5 gap-3 mb-6">
         {columns.map(col => (
           <div key={col.id} className={`rounded-xl p-3 border ${col.headerBg} ${col.border}`}>
             <p className="text-xs text-gray-500 mb-1 truncate">{col.label}</p>

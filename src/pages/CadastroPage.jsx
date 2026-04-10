@@ -6,10 +6,12 @@ import ImportModal from '../components/ImportModal'
 import LevelBadge from '../components/LevelBadge'
 
 const FISCAL_LABELS = {
-  regular: { label: 'Regular', cls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' },
-  alerta:  { label: 'Alerta',  cls: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30' },
-  irregular: { label: 'Irregular', cls: 'text-orange-400 bg-orange-500/10 border-orange-500/30' },
-  bloqueado: { label: 'Bloqueado', cls: 'text-red-400 bg-red-500/10 border-red-500/30' },
+  sem_consulta:       { label: 'Sem Consulta',          cls: 'text-gray-400 bg-gray-500/10 border-gray-500/30' },
+  com_pendencia:      { label: 'Com Pendência',          cls: 'text-red-400 bg-red-500/10 border-red-500/30' },
+  comunicado_cliente: { label: 'Comunicado ao Cliente',  cls: 'text-blue-400 bg-blue-500/10 border-blue-500/30' },
+  em_regularizacao:   { label: 'Em Regularização',       cls: 'text-purple-400 bg-purple-500/10 border-purple-500/30' },
+  resolvido:          { label: 'Resolvido',              cls: 'text-teal-400 bg-teal-500/10 border-teal-500/30' },
+  sem_pendencia:      { label: 'Sem Pendência',          cls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' },
 }
 
 
@@ -38,7 +40,7 @@ export default function CadastroPage() {
     list = [...list].sort((a, b) => {
       const va = String(a[sortKey] || '').toLowerCase()
       const vb = String(b[sortKey] || '').toLowerCase()
-      if (sortKey === 'monthlyRevenue' || sortKey === 'healthScore') {
+      if (sortKey === 'monthlyRevenue') {
         return sortDir === 'asc' ? Number(a[sortKey]) - Number(b[sortKey]) : Number(b[sortKey]) - Number(a[sortKey])
       }
       return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
@@ -51,13 +53,17 @@ export default function CadastroPage() {
     else { setSortKey(key); setSortDir('asc') }
   }
 
-  function handleSave(data) {
-    if (editingClient?.id) {
-      updateClient(editingClient.id, data)
-    } else {
-      addClient(data)
+  async function handleSave(data) {
+    try {
+      if (editingClient?.id) {
+        await updateClient(editingClient.id, data)
+      } else {
+        await addClient(data)
+      }
+      setEditingClient(undefined)
+    } catch (err) {
+      alert('Erro ao salvar: ' + err.message)
     }
-    setEditingClient(undefined)
   }
 
   function handleImport(rows) {
@@ -169,7 +175,6 @@ export default function CadastroPage() {
                 { key: 'tipo', label: 'Tipo' },
                 { key: 'responsible', label: 'Responsável' },
                 { key: 'fiscalStatus', label: 'Situação Fiscal' },
-                { key: 'healthScore', label: 'Health' },
               ].map(col => (
                 <th
                   key={col.key}
@@ -188,7 +193,7 @@ export default function CadastroPage() {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-12 text-center text-gray-600 text-sm">
+                <td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">
                   Nenhuma empresa encontrada.
                 </td>
               </tr>
@@ -224,13 +229,6 @@ export default function CadastroPage() {
                     <span className={`inline-block text-xs px-2 py-0.5 rounded-full border font-medium ${fiscal.cls}`}>
                       {fiscal.label}
                     </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs font-bold ${
-                      client.healthScore >= 80 ? 'text-emerald-400' :
-                      client.healthScore >= 55 ? 'text-yellow-300' :
-                      client.healthScore >= 30 ? 'text-orange-400' : 'text-red-400'
-                    }`}>{client.healthScore}</span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">

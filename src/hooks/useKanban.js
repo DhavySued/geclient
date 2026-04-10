@@ -62,10 +62,11 @@ export function useCXKanban(levelFilter) {
   }, [clients, levelFilter])
 
   const columns = useMemo(() => ({
-    promotor:    { id: 'promotor',    label: 'Promotor',       clients: filtered.filter(c => c.cxStatus === 'promotor') },
-    neutro:      { id: 'neutro',      label: 'Neutro',         clients: filtered.filter(c => c.cxStatus === 'neutro') },
-    risco_churn: { id: 'risco_churn', label: 'Risco de Churn', clients: filtered.filter(c => c.cxStatus === 'risco_churn') },
-    detrator:    { id: 'detrator',    label: 'Detrator',       clients: filtered.filter(c => c.cxStatus === 'detrator') },
+    cliente_novo: { id: 'cliente_novo', label: 'Cliente Novo',   clients: filtered.filter(c => c.cxStatus === 'cliente_novo') },
+    promotor:     { id: 'promotor',     label: 'Promotor',       clients: filtered.filter(c => c.cxStatus === 'promotor') },
+    neutro:       { id: 'neutro',       label: 'Neutro',         clients: filtered.filter(c => c.cxStatus === 'neutro') },
+    risco_churn:  { id: 'risco_churn',  label: 'Risco de Churn', clients: filtered.filter(c => c.cxStatus === 'risco_churn') },
+    detrator:     { id: 'detrator',     label: 'Detrator',       clients: filtered.filter(c => c.cxStatus === 'detrator') },
   }), [filtered])
 
   function moveClient(clientId, targetStatus) {
@@ -75,24 +76,3 @@ export function useCXKanban(levelFilter) {
   return { columns, moveClient }
 }
 
-export function useMonthlyKanban(levelFilter) {
-  const { clients, updateClient } = useClients()
-
-  const filtered = useMemo(() => {
-    if (levelFilter === 'all') return clients
-    return clients.filter(c => c.level === levelFilter)
-  }, [clients, levelFilter])
-
-  const columns = useMemo(() => ({
-    pendente:    { id: 'pendente',    label: 'Pendente',    clients: filtered.filter(c => c.monthlyStatus === 'pendente') },
-    processando: { id: 'processando', label: 'Processando', clients: filtered.filter(c => c.monthlyStatus === 'processando') },
-    concluido:   { id: 'concluido',   label: 'Concluído',   clients: filtered.filter(c => c.monthlyStatus === 'concluido') },
-    atrasado:    { id: 'atrasado',    label: 'Atrasado',    clients: filtered.filter(c => c.monthlyStatus === 'atrasado') },
-  }), [filtered])
-
-  function moveClient(clientId, targetStatus) {
-    updateClient(clientId, { monthlyStatus: targetStatus })
-  }
-
-  return { columns, moveClient }
-}

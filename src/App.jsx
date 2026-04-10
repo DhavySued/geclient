@@ -10,7 +10,6 @@ import ClientDetailModal from './components/ClientDetailModal'
 import FiscalPage from './pages/FiscalPage'
 import CXPage from './pages/CXPage'
 import CadastroPage from './pages/CadastroPage'
-import AcompanhamentoPage from './pages/AcompanhamentoPage'
 import TasksPage from './pages/TasksPage'
 import CalendarPage from './pages/CalendarPage'
 import UsersPage from './pages/UsersPage'
@@ -59,7 +58,6 @@ function AppContent() {
           {activePage === 'cadastro'  && <CadastroPage />}
           {activePage === 'fiscal'    && <FiscalPage    onOpenClient={setSelectedClient} />}
           {activePage === 'cx'        && <CXPage        onOpenClient={setSelectedClient} />}
-          {activePage === 'mensal'    && <AcompanhamentoPage onOpenClient={setSelectedClient} />}
           {activePage === 'tasks'     && <TasksPage     onOpenClient={setSelectedClient} />}
           {activePage === 'calendar'  && <CalendarPage  onOpenClient={setSelectedClient} />}
           {activePage === 'users'     && <UsersPage />}
