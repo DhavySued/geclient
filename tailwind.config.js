@@ -6,13 +6,17 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Poppins', 'system-ui', 'sans-serif'],
+      },
       colors: {
         gold: {
-          400: '#FBBF24',
-          500: '#F59E0B',
-          600: '#D97706',
-        }
-      }
+          300: '#F0D080',
+          400: '#C9A84C',
+          500: '#A8882A',
+          600: '#7D6418',
+        },
+      },
     },
   },
   plugins: [],

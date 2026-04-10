@@ -107,17 +107,11 @@ export default function CadastroPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowImport(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition-all"
-          >
-            <Upload size={15} />
+          <button onClick={() => setShowImport(true)} className="btn-secondary">
+            <Upload size={14} />
             Importar CSV
           </button>
-          <button
-            onClick={() => setEditingClient(null)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-amber-500 hover:bg-amber-400 text-gray-900 transition-all"
-          >
+          <button onClick={() => setEditingClient(null)} className="btn-primary">
             <Plus size={15} />
             Nova Empresa
           </button>
@@ -126,32 +120,44 @@ export default function CadastroPage() {
 
       {/* Filters */}
       <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+        <div className="relative flex-1 min-w-[220px] max-w-sm">
+          <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'rgba(255,255,255,0.28)' }} />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por nome, CNPJ ou responsável..."
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-amber-500/50"
+            className="w-full pl-9 pr-3 py-2.5 rounded-xl text-[13px] focus:outline-none transition-colors"
+            style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              color: '#F1F1F3',
+            }}
+            onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.45)'}
+            onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {[
-            { value: 'all', label: 'Todos', icon: null },
-            { value: 'Premium', label: 'Premium', icon: Crown },
-            { value: 'Gold', label: 'Gold', icon: Star },
+            { value: 'all',      label: 'Todos',    icon: null },
+            { value: 'Premium',  label: 'Premium',  icon: Crown },
+            { value: 'Gold',     label: 'Gold',     icon: Star },
             { value: 'Standard', label: 'Standard', icon: CircleDot },
           ].map(({ value, label, icon: Icon }) => (
             <button
               key={value}
               onClick={() => setLevelFilter(value)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                levelFilter === value
-                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                  : 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
-              }`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-150"
+              style={levelFilter === value ? {
+                background: 'rgba(245,158,11,0.14)',
+                border: '1px solid rgba(245,158,11,0.30)',
+                color: '#FCD34D',
+              } : {
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                color: 'rgba(255,255,255,0.38)',
+              }}
             >
               {Icon && <Icon size={11} />}
               {label}
@@ -159,89 +165,133 @@ export default function CadastroPage() {
           ))}
         </div>
 
-        <span className="ml-auto text-xs text-gray-600">{filtered.length} resultado{filtered.length !== 1 ? 's' : ''}</span>
+        <span className="ml-auto text-[11px]" style={{ color: 'rgba(255,255,255,0.25)' }}>
+          {filtered.length} resultado{filtered.length !== 1 ? 's' : ''}
+        </span>
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto scrollbar-thin rounded-xl border border-gray-800">
-        <table className="w-full text-sm min-w-[900px]">
+      <div className="flex-1 overflow-auto scrollbar-thin rounded-2xl" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+        <table className="w-full min-w-[900px]">
           <thead className="sticky top-0 z-10">
-            <tr className="bg-gray-900 border-b border-gray-800">
+            <tr style={{ background: '#0D0E14', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
               {[
-                { key: 'name', label: 'Empresa' },
-                { key: 'cnpj', label: 'CNPJ' },
-                { key: 'level', label: 'Nível' },
-                { key: 'regime', label: 'Regime' },
-                { key: 'tipo', label: 'Tipo' },
-                { key: 'responsible', label: 'Responsável' },
+                { key: 'name',         label: 'Empresa' },
+                { key: 'cnpj',         label: 'CNPJ' },
+                { key: 'level',        label: 'Nível' },
+                { key: 'regime',       label: 'Regime' },
+                { key: 'tipo',         label: 'Tipo' },
+                { key: 'responsible',  label: 'Responsável' },
                 { key: 'fiscalStatus', label: 'Situação Fiscal' },
               ].map(col => (
                 <th
                   key={col.key}
                   onClick={() => toggleSort(col.key)}
-                  className="text-left text-xs font-semibold text-gray-500 px-4 py-3 cursor-pointer hover:text-gray-300 select-none whitespace-nowrap"
+                  className="text-left px-5 py-3.5 cursor-pointer select-none whitespace-nowrap"
                 >
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1.5 text-[11px] font-semibold tracking-widest uppercase transition-colors"
+                    style={{ color: sortKey === col.key ? '#C9A84C' : 'rgba(255,255,255,0.35)' }}>
                     {col.label}
                     <SortIcon col={col.key} />
                   </span>
                 </th>
               ))}
-              <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3">Ações</th>
+              <th className="px-5 py-3.5 text-[11px] font-semibold tracking-widest uppercase text-left"
+                  style={{ color: 'rgba(255,255,255,0.35)' }}>
+                Ações
+              </th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">
-                  Nenhuma empresa encontrada.
+                <td colSpan={8} className="px-5 py-16 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <Search size={20} style={{ color: 'rgba(255,255,255,0.20)' }} />
+                    </div>
+                    <p className="text-[13px] font-medium" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                      Nenhuma empresa encontrada
+                    </p>
+                    <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.20)' }}>
+                      Tente ajustar os filtros ou cadastre uma nova empresa
+                    </p>
+                  </div>
                 </td>
               </tr>
             )}
-            {filtered.map(client => {
-              const fiscal = FISCAL_LABELS[client.fiscalStatus] || FISCAL_LABELS.regular
+            {filtered.map((client, i) => {
+              const fiscal = FISCAL_LABELS[client.fiscalStatus] || FISCAL_LABELS.sem_consulta
               return (
                 <tr
                   key={client.id}
-                  className="border-b border-gray-800/60 hover:bg-gray-800/40 transition-colors"
+                  className="group transition-colors duration-100"
+                  style={{
+                    borderBottom: i < filtered.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                    background: 'transparent',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.025)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-100 truncate max-w-[200px]" title={client.name}>
+                  <td className="px-5 py-4">
+                    <p className="text-[13px] font-semibold truncate max-w-[200px]"
+                       style={{ color: '#F1F1F3' }} title={client.name}>
                       {client.name}
                     </p>
                   </td>
-                  <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{client.cnpj}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-4 whitespace-nowrap">
+                    <span className="text-[12px] font-mono" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                      {client.cnpj}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
                     <LevelBadge level={client.level} />
                   </td>
-                  <td className="px-4 py-3 text-gray-400 whitespace-nowrap text-xs">{client.regime}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-xs">
-                    <span className={`inline-block px-2 py-0.5 rounded-full border font-medium ${
-                      client.tipo === 'Comércio' ? 'bg-blue-500/10 border-blue-500/30 text-blue-300' :
-                      client.tipo === 'Misto'    ? 'bg-purple-500/10 border-purple-500/30 text-purple-300' :
-                                                   'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                    }`}>
+                  <td className="px-5 py-4 whitespace-nowrap">
+                    <span className="text-[12px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                      {client.regime}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 whitespace-nowrap">
+                    <span className="text-[11px] font-semibold px-2.5 py-1 rounded-lg"
+                      style={client.tipo === 'Comércio'
+                        ? { background: 'rgba(59,130,246,0.12)', color: '#93C5FD', border: '1px solid rgba(59,130,246,0.25)' }
+                        : client.tipo === 'Misto'
+                        ? { background: 'rgba(168,85,247,0.12)', color: '#C4B5FD', border: '1px solid rgba(168,85,247,0.25)' }
+                        : { background: 'rgba(16,185,129,0.12)', color: '#6EE7B7', border: '1px solid rgba(16,185,129,0.25)' }
+                      }>
                       {client.tipo ?? 'Serviço'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-400">{client.responsible}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block text-xs px-2 py-0.5 rounded-full border font-medium ${fiscal.cls}`}>
+                  <td className="px-5 py-4">
+                    <span className="text-[12px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                      {client.responsible || '—'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border ${fiscal.cls}`}>
                       {fiscal.label}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-3">
                       <button
                         onClick={() => setEditingClient(client)}
-                        className="text-gray-500 hover:text-amber-400 transition-colors"
+                        className="transition-colors duration-150"
+                        style={{ color: 'rgba(255,255,255,0.25)' }}
+                        onMouseEnter={e => e.currentTarget.style.color = '#C9A84C'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.25)'}
                         title="Editar"
                       >
                         <Pencil size={14} />
                       </button>
                       <button
                         onClick={() => confirmDelete(client)}
-                        className="text-gray-500 hover:text-red-400 transition-colors"
+                        className="transition-colors duration-150"
+                        style={{ color: 'rgba(255,255,255,0.25)' }}
+                        onMouseEnter={e => e.currentTarget.style.color = '#EF4444'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.25)'}
                         title="Excluir"
                       >
                         <Trash2 size={14} />
@@ -271,22 +321,25 @@ export default function CadastroPage() {
       {/* Delete Confirm */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setDeleteConfirm(null)} />
-          <div className="relative bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-base font-semibold text-white mb-2">Excluir empresa?</h3>
-            <p className="text-sm text-gray-400 mb-5">
-              <span className="font-medium text-gray-200">{deleteConfirm.name}</span> será removida permanentemente.
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)} />
+          <div className="relative rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+            style={{ background: '#0D0E14', border: '1px solid rgba(255,255,255,0.10)' }}>
+            <h3 className="text-[15px] font-semibold mb-2" style={{ color: '#F1F1F3' }}>Excluir empresa?</h3>
+            <p className="text-[13px] mb-5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              <span className="font-medium" style={{ color: '#F1F1F3' }}>{deleteConfirm.name}</span>{' '}
+              será removida permanentemente.
             </p>
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-gray-100 hover:bg-gray-800 border border-gray-700 transition-all"
+                className="btn-secondary text-[13px]"
               >
                 Cancelar
               </button>
               <button
                 onClick={doDelete}
-                className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-500 text-white transition-all"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white transition-all"
+                style={{ background: 'rgba(239,68,68,0.85)', border: '1px solid rgba(239,68,68,0.40)' }}
               >
                 Excluir
               </button>
@@ -297,7 +350,12 @@ export default function CadastroPage() {
 
       {/* Toast */}
       {importToast && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-emerald-900/90 border border-emerald-500/40 text-emerald-300 text-sm px-4 py-3 rounded-xl shadow-lg">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-[13px] font-medium"
+          style={{
+            background: 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.08) 100%)',
+            border: '1px solid rgba(16,185,129,0.30)',
+            color: '#6EE7B7',
+          }}>
           <span>{importToast}</span>
         </div>
       )}

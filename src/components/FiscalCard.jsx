@@ -1,10 +1,20 @@
 import { memo } from 'react'
 import { Draggable } from '@hello-pangea/dnd'
-import { FileX, Clock, User } from 'lucide-react'
+import { FileText, Clock, User } from 'lucide-react'
 import LevelBadge from './LevelBadge'
 import { calcFiscalScore, getApplicableItems } from '../hooks/useFiscalItems'
 import { useFiscalItemsCtx } from '../context/FiscalItemsContext'
 import { useFiscalConfig } from '../context/FiscalConfigContext'
+
+const STATUS_ACCENT = {
+  sem_consulta:       { border: 'rgba(156,163,175,0.45)', glow: 'rgba(107,114,128,0.05)',  bar: '#6B7280', text: '#9CA3AF' },
+  com_pendencia:      { border: 'rgba(239,68,68,0.50)',   glow: 'rgba(239,68,68,0.06)',    bar: '#EF4444', text: '#FCA5A5' },
+  comunicado_cliente: { border: 'rgba(59,130,246,0.50)',  glow: 'rgba(59,130,246,0.06)',   bar: '#3B82F6', text: '#93C5FD' },
+  em_regularizacao:   { border: 'rgba(168,85,247,0.50)',  glow: 'rgba(168,85,247,0.06)',   bar: '#A855F7', text: '#C4B5FD' },
+  resolvido:          { border: 'rgba(20,184,166,0.50)',  glow: 'rgba(20,184,166,0.06)',   bar: '#14B8A6', text: '#5EEAD4' },
+  sem_pendencia:      { border: 'rgba(16,185,129,0.50)',  glow: 'rgba(16,185,129,0.06)',   bar: '#10B981', text: '#6EE7B7' },
+}
+const DEFAULT_ACCENT = { border: 'rgba(255,255,255,0.08)', glow: 'rgba(255,255,255,0.02)', bar: '#6B7280', text: '#9CA3AF' }
 
 function formatDate(dateStr) {
   if (!dateStr) return '—'
@@ -14,30 +24,24 @@ function formatDate(dateStr) {
 function ScoreBar({ score }) {
   if (score === null) return null
   const s = score ?? 0
-  const color =
-    s >= 80 ? 'bg-emerald-500' :
-    s >= 55 ? 'bg-yellow-400' :
-    s >= 30 ? 'bg-orange-500' : 'bg-red-600'
-  const textColor =
-    s >= 80 ? 'text-emerald-400' :
-    s >= 55 ? 'text-yellow-300' :
-    s >= 30 ? 'text-orange-400' : 'text-red-400'
+  const color = s >= 80 ? '#10B981' : s >= 55 ? '#F59E0B' : s >= 30 ? '#F97316' : '#EF4444'
+  const textColor = s >= 80 ? '#6EE7B7' : s >= 55 ? '#FCD34D' : s >= 30 ? '#FDBA74' : '#FCA5A5'
   return (
-    <div className="mb-3">
-      <div className="flex justify-between items-center mb-1">
-        <span className="text-[10px] text-gray-600">Score Fiscal</span>
-        <span className={`text-[10px] font-bold ${textColor}`}>{s}/100</span>
+    <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="flex justify-between items-center mb-1.5">
+        <span className="text-[10px] font-medium tracking-wide uppercase" style={{ color: 'rgba(255,255,255,0.28)' }}>
+          Score Fiscal
+        </span>
+        <span className="text-[11px] font-semibold" style={{ color: textColor }}>{s}/100</span>
       </div>
-      <div className="h-1 bg-gray-700 rounded-full overflow-hidden">
-        <div className={`h-full ${color} rounded-full`} style={{ width: `${s}%` }} />
+      <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
+        <div className="h-full rounded-full" style={{ width: `${s}%`, background: color }} />
       </div>
     </div>
   )
 }
 
-// record é passado pelo pai — não lê do contexto para não re-renderizar durante drag
 const FiscalCard = memo(function FiscalCard({ client, index, record, onOpen }) {
-  const isPremium = client.level === 'Premium'
   const { fiscalItems }                            = useFiscalItemsCtx()
   const { regimeItems, conditionItems, tipoItems } = useFiscalConfig()
 
@@ -45,6 +49,9 @@ const FiscalCard = memo(function FiscalCard({ client, index, record, onOpen }) {
   const fiscalScore     = applicableItems.length > 0
     ? calcFiscalScore(record?.checks ?? {}, applicableItems)
     : null
+
+  const status  = record?.status ?? client.fiscalStatus ?? 'sem_consulta'
+  const accent  = STATUS_ACCENT[status] ?? DEFAULT_ACCENT
 
   const displayDate = record?.updatedAt
     ? formatDate(record.updatedAt)
@@ -59,41 +66,51 @@ const FiscalCard = memo(function FiscalCard({ client, index, record, onOpen }) {
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           onClick={() => { if (!snapshot.isDragging) onOpen?.(client) }}
-          className={`card-base ${snapshot.isDragging ? 'opacity-90 shadow-2xl border-amber-500/50' : ''} ${
-            isPremium ? 'border-amber-500/25 bg-gradient-to-br from-gray-800 to-amber-950/20' : ''
-          }`}
+          className="rounded-2xl p-4 cursor-grab active:cursor-grabbing"
+          style={{
+            background: `linear-gradient(135deg, ${accent.glow} 0%, rgba(17,19,24,0.95) 60%)`,
+            border: `1px solid rgba(255,255,255,0.07)`,
+            borderLeft: `3px solid ${accent.border}`,
+            boxShadow: snapshot.isDragging
+              ? `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${accent.border}`
+              : '0 1px 8px rgba(0,0,0,0.3)',
+            transition: 'box-shadow 150ms ease, border-color 150ms ease',
+            willChange: 'transform',
+          }}
         >
-          {/* Header */}
-          <div className="flex items-start gap-2 mb-3">
-            <div className="flex-1 min-w-0">
-              <div className="mb-1">
-                <LevelBadge level={client.level} />
-              </div>
-              <p className="text-sm font-semibold text-gray-100 leading-tight truncate" title={client.name}>
-                {client.name}
-              </p>
-              <p className="text-xs text-gray-500 mt-0.5">{client.cnpj}</p>
+          {/* Level + Name */}
+          <div className="mb-2.5">
+            <div className="mb-1.5">
+              <LevelBadge level={client.level} />
             </div>
+            <p className="text-[13px] font-semibold leading-snug truncate" style={{ color: '#F1F1F3' }} title={client.name}>
+              {client.name}
+            </p>
+            <p className="text-[11px] mt-0.5 truncate" style={{ color: 'rgba(255,255,255,0.32)' }}>
+              {client.cnpj}
+            </p>
           </div>
 
           {/* Regime */}
-          <div className="flex items-center gap-1.5 mb-3">
-            <FileX size={12} className="text-gray-500 flex-shrink-0" />
-            <span className="text-xs text-gray-400">{client.regime}</span>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <FileText size={10} style={{ color: 'rgba(255,255,255,0.25)', flexShrink: 0 }} />
+            <span className="text-[11px] truncate" style={{ color: 'rgba(255,255,255,0.38)' }}>
+              {client.regime}
+            </span>
           </div>
 
-          {/* Fiscal Score */}
+          {/* Score bar */}
           <ScoreBar score={fiscalScore} />
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-2 border-t border-gray-700/60">
-            <div className="flex items-center gap-1 text-xs text-gray-500">
-              <User size={11} />
-              <span className="truncate max-w-[100px]">{client.responsible || '—'}</span>
+          <div className="flex items-center justify-between mt-3">
+            <div className="flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.28)' }}>
+              <User size={10} />
+              <span className="text-[11px] truncate max-w-[90px]">{client.responsible || '—'}</span>
             </div>
-            <div className="flex items-center gap-1 text-xs text-gray-500" title={dateLabel}>
-              <Clock size={11} />
-              <span>{displayDate}</span>
+            <div className="flex items-center gap-1" title={dateLabel} style={{ color: 'rgba(255,255,255,0.28)' }}>
+              <Clock size={10} />
+              <span className="text-[11px]">{displayDate}</span>
             </div>
           </div>
         </div>

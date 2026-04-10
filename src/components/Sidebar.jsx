@@ -1,78 +1,65 @@
-import { BarChart3, Users, Building2, ChevronRight, CheckSquare, Calendar, UserCog, Settings } from 'lucide-react'
+import { BarChart3, Building2, CheckSquare, Calendar, UserCog, Settings, TrendingUp } from 'lucide-react'
 import { useTasks } from '../context/TasksContext'
 
 const kanbans = [
-  {
-    id: 'cadastro',
-    icon: Building2,
-    label: 'Empresas',
-    description: 'Cadastro e gestão',
-  },
-  {
-    id: 'fiscal',
-    icon: BarChart3,
-    label: 'Gestão Fiscal',
-    description: 'Situação tributária',
-  },
-  {
-    id: 'cx',
-    icon: Users,
-    label: 'Experiência CX',
-    description: 'Health Score',
-  },
+  { id: 'cadastro', icon: Building2,  label: 'Empresas',       description: 'Cadastro e gestão' },
+  { id: 'fiscal',   icon: BarChart3,  label: 'Gestão Fiscal',  description: 'Situação tributária' },
+  { id: 'cx',       icon: TrendingUp, label: 'Experiência CX', description: 'Health Score' },
 ]
 
 const tools = [
-  {
-    id: 'tasks',
-    icon: CheckSquare,
-    label: 'Tarefas',
-    description: 'Controle de tarefas',
-  },
-  {
-    id: 'calendar',
-    icon: Calendar,
-    label: 'Calendário',
-    description: 'Tarefas por data',
-  },
-  {
-    id: 'users',
-    icon: UserCog,
-    label: 'Usuários',
-    description: 'Equipe do escritório',
-  },
-  {
-    id: 'settings',
-    icon: Settings,
-    label: 'Configurações',
-    description: 'Preferências do sistema',
-  },
+  { id: 'tasks',    icon: CheckSquare, label: 'Tarefas',       description: 'Controle de tarefas' },
+  { id: 'calendar', icon: Calendar,    label: 'Calendário',    description: 'Tarefas por data' },
+  { id: 'users',    icon: UserCog,     label: 'Usuários',      description: 'Equipe do escritório' },
+  { id: 'settings', icon: Settings,    label: 'Configurações', description: 'Preferências do sistema' },
 ]
+
+function SectionLabel({ children }) {
+  return (
+    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] px-3 mt-5 mb-1.5 first:mt-0"
+       style={{ color: 'rgba(255,255,255,0.22)' }}>
+      {children}
+    </p>
+  )
+}
 
 function NavItem({ item, active, onNavigate, badge }) {
   const Icon = item.icon
   return (
     <button
       onClick={() => onNavigate(item.id)}
-      className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all duration-150 group ${
-        active
-          ? 'bg-amber-500/15 border border-amber-500/30 text-amber-400'
-          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-100 border border-transparent'
-      }`}
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150 group relative"
+      style={active ? {
+        background: 'linear-gradient(135deg, rgba(245,158,11,0.13) 0%, rgba(217,119,6,0.07) 100%)',
+        border: '1px solid rgba(245,158,11,0.22)',
+      } : {
+        background: 'transparent',
+        border: '1px solid transparent',
+      }}
     >
-      <Icon size={18} className={active ? 'text-amber-400' : 'text-gray-500 group-hover:text-gray-300'} />
+      {active && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-amber-400" />
+      )}
+      <Icon
+        size={16}
+        className="flex-shrink-0 transition-colors"
+        style={{ color: active ? '#FCD34D' : 'rgba(255,255,255,0.28)' }}
+      />
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium leading-tight ${active ? 'text-amber-300' : ''}`}>
+        <p className="text-[13px] font-medium leading-tight tracking-tight transition-colors"
+           style={{ color: active ? '#FDE68A' : 'rgba(255,255,255,0.65)' }}>
           {item.label}
         </p>
-        <p className="text-xs text-gray-500 truncate">{item.description}</p>
+        <p className="text-[11px] truncate mt-0.5" style={{ color: 'rgba(255,255,255,0.22)' }}>
+          {item.description}
+        </p>
       </div>
       {badge > 0 && (
-        <span className="flex-shrink-0 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-amber-500 text-gray-900 text-[10px] font-bold px-1">
+        <span className="flex-shrink-0 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[10px] font-bold px-1"
+          style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', color: '#0A0A0F' }}>
           {badge > 99 ? '99+' : badge}
         </span>
       )}
-      {active && !badge && <ChevronRight size={14} className="text-amber-500 flex-shrink-0" />}
     </button>
   )
 }
@@ -82,37 +69,42 @@ export default function Sidebar({ activePage, onNavigate }) {
   const pendingTaskCount = tasks.filter(t => t.status !== 'concluida').length
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-gray-900 border-r border-gray-800 flex flex-col z-20">
+    <aside className="fixed left-0 top-0 h-screen w-64 flex flex-col z-20"
+      style={{
+        background: 'linear-gradient(180deg, #0D0E14 0%, #0A0B10 100%)',
+        borderRight: '1px solid rgba(255,255,255,0.06)',
+      }}>
+
       {/* Logo */}
-      <div className="px-5 py-6 border-b border-gray-800">
+      <div className="px-5 py-5 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center flex-shrink-0">
-            <Building2 size={18} className="text-amber-400" />
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{
+              background: 'linear-gradient(135deg, rgba(245,158,11,0.22) 0%, rgba(180,83,9,0.12) 100%)',
+              border: '1px solid rgba(245,158,11,0.28)',
+              boxShadow: '0 0 16px rgba(245,158,11,0.10)',
+            }}>
+            <Building2 size={17} className="text-amber-400" />
           </div>
           <div>
-            <p className="text-sm font-bold text-white leading-tight">GEClient</p>
-            <p className="text-xs text-gray-500 leading-tight">Exp. Contábil</p>
+            <p className="text-[14px] font-semibold tracking-tight" style={{ color: '#F5F5F7' }}>
+              GEClient
+            </p>
+            <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.28)' }}>
+              Gestão Contábil
+            </p>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-5 flex flex-col gap-1 overflow-y-auto scrollbar-thin">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest px-2 mb-3">
-          Módulos
-        </p>
+      <nav className="flex-1 px-3 py-4 flex flex-col overflow-y-auto scrollbar-thin gap-0.5">
+        <SectionLabel>Módulos</SectionLabel>
         {kanbans.map(item => (
-          <NavItem
-            key={item.id}
-            item={item}
-            active={activePage === item.id}
-            onNavigate={onNavigate}
-          />
+          <NavItem key={item.id} item={item} active={activePage === item.id} onNavigate={onNavigate} />
         ))}
 
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest px-2 mb-3 mt-5">
-          Produtividade
-        </p>
+        <SectionLabel>Produtividade</SectionLabel>
         {tools.map(item => (
           <NavItem
             key={item.id}
@@ -125,8 +117,10 @@ export default function Sidebar({ activePage, onNavigate }) {
       </nav>
 
       {/* Footer */}
-      <div className="px-5 py-4 border-t border-gray-800">
-        <p className="text-xs text-gray-600 text-center">v1.0 · GEClient CRM</p>
+      <div className="px-5 py-3 flex-shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <p className="text-[11px] text-center" style={{ color: 'rgba(255,255,255,0.18)' }}>
+          v1.0 · GEClient CRM
+        </p>
       </div>
     </aside>
   )
