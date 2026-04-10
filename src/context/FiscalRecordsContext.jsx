@@ -41,14 +41,39 @@ export function FiscalRecordsProvider({ children }) {
 
   useEffect(() => { fetchRecords() }, [fetchRecords])
 
-  // Subscription em tempo real
+  // Subscription em tempo real — merge cirúrgico para evitar re-render completo
   useEffect(() => {
     const ch = supabase
       .channel('fiscal-month-records-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_month_records' }, fetchRecords)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_month_records' }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          const { client_id, month } = payload.old
+          setRecords(prev => {
+            const byClient = { ...(prev[client_id] ?? {}) }
+            delete byClient[month]
+            return { ...prev, [client_id]: byClient }
+          })
+          return
+        }
+        const row = payload.new
+        setRecords(prev => ({
+          ...prev,
+          [row.client_id]: {
+            ...(prev[row.client_id] ?? {}),
+            [row.month]: {
+              id:           row.id,
+              status:       row.status,
+              checks:       row.checks ?? {},
+              pendingTaxes: row.pending_taxes ?? [],
+              note:         row.note ?? '',
+              updatedAt:    row.updated_at ?? null,
+            },
+          },
+        }))
+      })
       .subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [fetchRecords])
+  }, [])
 
   /** Retorna o registro de um cliente para um mês específico, ou null */
   function getRecord(clientId, month) {
@@ -101,9 +126,16 @@ export function FiscalRecordsProvider({ children }) {
 
     if (error) {
       console.error('FiscalRecords upsert error:', error)
-      fetchRecords() // reverte o optimistic update
+      // Reverte o optimistic update restaurando o estado anterior
+      setRecords(prev => ({
+        ...prev,
+        [clientId]: {
+          ...(prev[clientId] ?? {}),
+          [month]: existing ?? undefined,
+        },
+      }))
     }
-  }, [records, fetchRecords])
+  }, [records])
 
   return (
     <FiscalRecordsContext.Provider value={{ records, loading, getRecord, getClientHistory, upsertRecord }}>

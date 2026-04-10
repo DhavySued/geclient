@@ -92,7 +92,8 @@ export default function FiscalPage({ onOpenClient }) {
     const { destination, source, draggableId } = result
     if (!destination) return
     if (destination.droppableId === source.droppableId && destination.index === source.index) return
-    moveClient(draggableId, destination.droppableId)
+    // fire-and-forget — optimistic update já aplicado no contexto
+    moveClient(draggableId, destination.droppableId).catch(console.error)
   }
 
   return (

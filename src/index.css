@@ -17,11 +17,13 @@
   }
 
   .card-base {
-    @apply bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-md cursor-grab active:cursor-grabbing transition-all duration-150;
+    @apply bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-md cursor-grab active:cursor-grabbing;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+    will-change: transform;
   }
 
   .card-base:hover {
-    @apply border-gray-500 shadow-lg translate-y-[-1px];
+    @apply border-gray-500 shadow-lg;
   }
 
   .badge-premium {

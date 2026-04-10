@@ -27,12 +27,15 @@ export function ClientsProvider({ children }) {
   useEffect(() => {
     const channel = supabase
       .channel('clients-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => {
-        fetchClients()
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'clients' }, ({ new: row }) => {
+        setClients(prev => prev.some(c => c.id === row.id) ? prev : [fromDb(row), ...prev])
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'clients' }, ({ old: row }) => {
+        setClients(prev => prev.filter(c => c.id !== row.id))
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [fetchClients])
+  }, [])
 
   // ── Add ──────────────────────────────────────────────────────────────────
   async function addClient(data) {
