@@ -32,6 +32,7 @@ export function FiscalRecordsProvider({ children }) {
         checks:       row.checks ?? {},
         pendingTaxes: row.pending_taxes ?? [],
         note:         row.note ?? '',
+        updatedAt:    row.updated_at ?? null,
       }
     }
     setRecords(map)
@@ -89,6 +90,7 @@ export function FiscalRecordsProvider({ children }) {
           checks:       payload.checks,
           pendingTaxes: payload.pending_taxes,
           note:         payload.note,
+          updatedAt:    new Date().toISOString(),
         },
       },
     }))

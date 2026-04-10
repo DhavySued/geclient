@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   X, User, Clock, FileText, AlertTriangle,
   Plus, BarChart3, Users, Briefcase,
-  History, Pencil, Check, ChevronDown, ChevronUp, Repeat,
+  History, Pencil, Check, ChevronDown, ChevronUp, Repeat, Info,
 } from 'lucide-react'
 import { useTasks } from '../context/TasksContext'
 import { useUsers } from '../context/UsersContext'
@@ -203,7 +203,15 @@ function AnalysisTab({ client, selectedMonth }) {
       <div className="bg-gray-800/60 rounded-xl p-4 border border-gray-700/50">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Saúde Fiscal</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Saúde Fiscal</p>
+              <span
+                title={`Como é calculado:\n• Cada item tem um peso (padrão 10).\n• Score = soma dos pesos dos itens marcados como ✓ Regular ÷ soma total dos pesos × 100.\n• Itens sem marcação ou marcados como ✗ Pendente não somam ao score.\n\nEx: 4 itens (peso 10 cada) → marcar 3 como Regular = score 75.`}
+                className="cursor-help text-gray-600 hover:text-gray-400 transition-colors"
+              >
+                <Info size={12} />
+              </span>
+            </div>
             <p className="text-xs text-gray-600 mt-0.5">{formatMonth(activeMonth)}</p>
           </div>
           <div className="text-right leading-none">
@@ -277,25 +285,6 @@ function AnalysisTab({ client, selectedMonth }) {
           </div>
         </div>
       )}
-
-      {/* Tributos Pendentes */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <AlertTriangle size={14} className="text-orange-400" />
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tributos pendentes</p>
-        </div>
-        {client.pendingTaxes?.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {client.pendingTaxes.map(tax => (
-              <span key={tax} className={`px-3 py-1 rounded-lg text-xs font-semibold border ${TAX_COLOR[tax] || 'bg-gray-700 text-gray-300 border-gray-600'}`}>
-                {tax}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-gray-600 italic">Nenhum tributo pendente.</p>
-        )}
-      </div>
 
       {/* Observações */}
       <div>
@@ -708,10 +697,17 @@ function FiscalHistoryTab({ client }) {
                         </span>
                       )}
                     </div>
-                    {isExpanded
-                      ? <ChevronUp size={13} className="text-gray-600 flex-shrink-0" />
-                      : <ChevronDown size={13} className="text-gray-600 flex-shrink-0" />
-                    }
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {entry.updatedAt && (
+                        <span className="text-[10px] text-gray-600" title="Última edição">
+                          {new Date(entry.updatedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                      {isExpanded
+                        ? <ChevronUp size={13} className="text-gray-600" />
+                        : <ChevronDown size={13} className="text-gray-600" />
+                      }
+                    </div>
                   </div>
 
                   {/* Expanded */}
