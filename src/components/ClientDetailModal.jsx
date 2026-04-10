@@ -196,13 +196,14 @@ function AnalysisTab({ client, selectedMonth }) {
   async function handleSave() {
     setSaving(true)
     try {
+      const newStatus = previewScore === 100 ? 'sem_pendencia' : 'com_pendencia'
       await upsertRecord(client.id, activeMonth, {
-        status:       record?.status       ?? client.fiscalStatus,
+        status:       newStatus,
         checks:       draft,
         pendingTaxes: record?.pendingTaxes ?? client.pendingTaxes ?? [],
         note:         record?.note         ?? '',
       })
-      updateClient(client.id, { scoreFiscal: previewScore })
+      updateClient(client.id, { scoreFiscal: previewScore, fiscalStatus: newStatus })
     } finally {
       setSaving(false)
     }
