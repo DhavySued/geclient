@@ -1,25 +1,13 @@
 import { Draggable } from '@hello-pangea/dnd'
-import { AlertTriangle, FileX, Clock, User } from 'lucide-react'
+import { FileX, Clock, User } from 'lucide-react'
 import LevelBadge from './LevelBadge'
 import { calcFiscalScore, getApplicableItems } from '../hooks/useFiscalItems'
 import { useFiscalItemsCtx } from '../context/FiscalItemsContext'
 import { useFiscalConfig } from '../context/FiscalConfigContext'
-
-const taxColors = {
-  INSS: 'bg-red-500/20 text-red-300 border-red-500/30',
-  FGTS: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
-  DAS:  'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-  IRPJ: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-  CSLL: 'bg-pink-500/20 text-pink-300 border-pink-500/30',
-  COFINS: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  PIS:  'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
-  ICMS: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
-  'Simples/IVA': 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
-}
-
-const defaultTaxColor = 'bg-gray-700 text-gray-300 border-gray-600'
+import { useFiscalRecords } from '../context/FiscalRecordsContext'
 
 function formatDate(dateStr) {
+  if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 }
 
@@ -49,16 +37,21 @@ function ScoreBar({ score }) {
 
 export default function FiscalCard({ client, index, onOpen, selectedMonth }) {
   const isPremium = client.level === 'Premium'
-  const { fiscalItems }                      = useFiscalItemsCtx()
+  const { fiscalItems }                            = useFiscalItemsCtx()
   const { regimeItems, conditionItems, tipoItems } = useFiscalConfig()
+  const { getRecord }                              = useFiscalRecords()
 
   const applicableItems = getApplicableItems(client, fiscalItems, regimeItems, conditionItems, tipoItems)
-  const fiscalEntry = selectedMonth
-    ? (client.fiscalHistory ?? []).find(h => h.month === selectedMonth)
-    : null
+  const record      = selectedMonth ? getRecord(client.id, selectedMonth) : null
   const fiscalScore = applicableItems.length > 0
-    ? (fiscalEntry ? calcFiscalScore(fiscalEntry.checks ?? {}, applicableItems) : 0)
+    ? calcFiscalScore(record?.checks ?? {}, applicableItems)
     : null
+
+  // Data exibida: última atualização do registro do mês, ou última interação do cliente
+  const displayDate = record?.updatedAt
+    ? formatDate(record.updatedAt)
+    : formatDate(client.lastInteraction)
+  const dateLabel = record?.updatedAt ? 'Última análise' : 'Última interação'
 
   return (
     <Draggable draggableId={client.id} index={index}>
@@ -91,26 +84,6 @@ export default function FiscalCard({ client, index, onOpen, selectedMonth }) {
             <span className="text-xs text-gray-400">{client.regime}</span>
           </div>
 
-          {/* Pending Taxes */}
-          {client.pendingTaxes.length > 0 && (
-            <div className="mb-3">
-              <div className="flex items-center gap-1 mb-1.5">
-                <AlertTriangle size={12} className="text-orange-400 flex-shrink-0" />
-                <span className="text-xs text-gray-500 font-medium">Tributos pendentes</span>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {client.pendingTaxes.map(tax => (
-                  <span
-                    key={tax}
-                    className={`text-xs px-1.5 py-0.5 rounded border font-medium ${taxColors[tax] || defaultTaxColor}`}
-                  >
-                    {tax}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Fiscal Score */}
           <ScoreBar score={fiscalScore} />
 
@@ -118,11 +91,11 @@ export default function FiscalCard({ client, index, onOpen, selectedMonth }) {
           <div className="flex items-center justify-between pt-2 border-t border-gray-700/60">
             <div className="flex items-center gap-1 text-xs text-gray-500">
               <User size={11} />
-              <span className="truncate max-w-[100px]">{client.responsible}</span>
+              <span className="truncate max-w-[100px]">{client.responsible || '—'}</span>
             </div>
-            <div className="flex items-center gap-1 text-xs text-gray-500">
+            <div className="flex items-center gap-1 text-xs text-gray-500" title={dateLabel}>
               <Clock size={11} />
-              <span>{formatDate(client.lastInteraction)}</span>
+              <span>{displayDate}</span>
             </div>
           </div>
         </div>
