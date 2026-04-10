@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { DragDropContext } from '@hello-pangea/dnd'
 import { BarChart3, Settings2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useFiscalKanban } from '../hooks/useKanban'
@@ -7,6 +7,7 @@ import KanbanColumn from '../components/KanbanColumn'
 import KanbanSettingsModal from '../components/KanbanSettingsModal'
 import FiscalCard from '../components/FiscalCard'
 import FilterBar from '../components/FilterBar'
+import { useFiscalRecords } from '../context/FiscalRecordsContext'
 
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -83,17 +84,63 @@ export default function FiscalPage({ onOpenClient }) {
 
   const { columns: kanbanColumns, moveClient } = useFiscalKanban(levelFilter, selectedMonth)
   const { columns, updateLabel, reorder }      = useKanbanSettings('fiscal', DEFAULT_COLUMNS)
+  const { getRecord }                          = useFiscalRecords()
 
-  const totalVisible = columns.reduce(
-    (sum, col) => sum + (kanbanColumns[col.id]?.clients.length ?? 0), 0
-  )
+  // ── Drag snapshot: congela a ordem visual durante e logo após o drag ──────
+  const snapshotRef  = useRef(null)   // { [colId]: client[] }
+  const releaseTimer = useRef(null)
+  const [snapTick, setSnapTick] = useState(0) // força re-render ao mudar snapshot
+
+  function captureSnapshot(override = {}) {
+    const snap = {}
+    columns.forEach(col => {
+      snap[col.id] = [...(kanbanColumns[col.id]?.clients ?? [])]
+    })
+    snapshotRef.current = { ...snap, ...override }
+    setSnapTick(t => t + 1)
+  }
+
+  function releaseSnapshot(delay = 700) {
+    if (releaseTimer.current) clearTimeout(releaseTimer.current)
+    releaseTimer.current = setTimeout(() => {
+      snapshotRef.current = null
+      setSnapTick(t => t + 1)
+    }, delay)
+  }
+
+  function getColClients(colId) {
+    return snapshotRef.current?.[colId] ?? kanbanColumns[colId]?.clients ?? []
+  }
+
+  const totalVisible = columns.reduce((sum, col) => sum + getColClients(col.id).length, 0)
+
+  function onBeforeDragStart() {
+    if (releaseTimer.current) clearTimeout(releaseTimer.current)
+    captureSnapshot()
+  }
 
   function onDragEnd(result) {
     const { destination, source, draggableId } = result
-    if (!destination) return
-    if (destination.droppableId === source.droppableId && destination.index === source.index) return
-    // fire-and-forget — optimistic update já aplicado no contexto
+    if (!destination || (destination.droppableId === source.droppableId && destination.index === source.index)) {
+      releaseSnapshot(0)
+      return
+    }
+
+    // Reordena o snapshot para refletir exatamente onde o card foi solto
+    const current = snapshotRef.current ?? {}
+    const newSnap = {}
+    columns.forEach(col => { newSnap[col.id] = [...(current[col.id] ?? [])] })
+
+    const srcList = newSnap[source.droppableId]
+    const [moved] = srcList.splice(source.index, 1)
+    const destList = newSnap[destination.droppableId]
+    destList.splice(destination.index, 0, moved)
+
+    snapshotRef.current = newSnap
+    setSnapTick(t => t + 1)
+
     moveClient(draggableId, destination.droppableId).catch(console.error)
+    releaseSnapshot(800)
   }
 
   return (
@@ -146,23 +193,24 @@ export default function FiscalPage({ onOpenClient }) {
       </div>
 
       {/* Kanban Board */}
-      <DragDropContext onDragEnd={onDragEnd}>
+      <DragDropContext onBeforeDragStart={onBeforeDragStart} onDragEnd={onDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin flex-1">
           {columns.map(col => {
-            const kanbanCol = kanbanColumns[col.id] ?? { id: col.id, label: col.label, clients: [] }
+            const colClients = getColClients(col.id)
+            const kanbanCol  = { id: col.id, label: col.label, clients: colClients }
             return (
               <KanbanColumn
                 key={col.id}
                 column={{ ...kanbanCol, label: col.label, description: col.description }}
                 colorConfig={col}
               >
-                {kanbanCol.clients.map((client, index) => (
+                {colClients.map((client, index) => (
                   <FiscalCard
                     key={client.id}
                     client={client}
                     index={index}
+                    record={getRecord(client.id, selectedMonth)}
                     onOpen={c => onOpenClient(c, selectedMonth)}
-                    selectedMonth={selectedMonth}
                   />
                 ))}
               </KanbanColumn>
