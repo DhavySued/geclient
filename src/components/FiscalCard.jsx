@@ -25,6 +25,7 @@ function formatDate(dateStr) {
 
 function ScoreBar({ score }) {
   if (score === null) return null
+  score = score ?? 0
   const color =
     score >= 80 ? 'bg-emerald-500' :
     score >= 55 ? 'bg-yellow-400' :
@@ -55,8 +56,8 @@ export default function FiscalCard({ client, index, onOpen, selectedMonth }) {
   const fiscalEntry = selectedMonth
     ? (client.fiscalHistory ?? []).find(h => h.month === selectedMonth)
     : null
-  const fiscalScore = fiscalEntry && applicableItems.length > 0
-    ? calcFiscalScore(fiscalEntry.checks ?? {}, applicableItems)
+  const fiscalScore = applicableItems.length > 0
+    ? (fiscalEntry ? calcFiscalScore(fiscalEntry.checks ?? {}, applicableItems) : 0)
     : null
 
   return (

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   X, User, Clock, FileText, AlertTriangle,
-  Plus, BarChart3, Users, Briefcase, Activity,
+  Plus, BarChart3, Users, Briefcase,
   History, Pencil, Check, ChevronDown, ChevronUp, Repeat,
 } from 'lucide-react'
 import { useTasks } from '../context/TasksContext'
@@ -128,8 +128,120 @@ function InfoCard({ icon: Icon, label, value, valueClass = 'text-gray-200' }) {
 // ── Analysis Tab ───────────────────────────────────────────────────────────
 
 function AnalysisTab({ client }) {
+  const { updateClient }                           = useClients()
+  const { fiscalItems }                            = useFiscalItemsCtx()
+  const { regimeItems, conditionItems, tipoItems } = useFiscalConfig()
+  const applicableItems = getApplicableItems(client, fiscalItems, regimeItems, conditionItems, tipoItems)
+
+  const currentMonth  = new Date().toISOString().slice(0, 7)
+  const history       = client.fiscalHistory ?? []
+  const currentEntry  = history.find(h => h.month === currentMonth)
+  const currentChecks = currentEntry?.checks ?? {}
+  const currentScore  = applicableItems.length > 0
+    ? calcFiscalScore(currentChecks, applicableItems)
+    : null
+  const scoreValue    = currentScore ?? 0
+
+  const scoreTextColor =
+    scoreValue >= 80 ? 'text-emerald-400' :
+    scoreValue >= 55 ? 'text-yellow-300' :
+    scoreValue >= 30 ? 'text-orange-400' : 'text-red-400'
+  const scoreBarColor =
+    scoreValue >= 80 ? 'bg-emerald-500' :
+    scoreValue >= 55 ? 'bg-yellow-400' :
+    scoreValue >= 30 ? 'bg-orange-500' : 'bg-red-600'
+
+  function toggleCheck(itemId) {
+    const checks  = { ...currentChecks }
+    const current = checks[itemId] ?? null
+    checks[itemId] = current === null ? 'ok' : current === 'ok' ? 'pendente' : null
+
+    const newScore  = calcFiscalScore(checks, applicableItems) ?? 0
+    const baseEntry = currentEntry ?? {
+      month: currentMonth, status: client.fiscalStatus,
+      pendingTaxes: client.pendingTaxes ?? [], note: '', checks: {},
+    }
+    const updated = currentEntry
+      ? history.map(h => h.month === currentMonth ? { ...h, checks } : h)
+      : [{ ...baseEntry, checks }, ...history]
+
+    updateClient(client.id, { fiscalHistory: updated, scoreFiscal: newScore })
+  }
+
   return (
     <div className="space-y-5">
+
+      {/* Score Fiscal em destaque */}
+      <div className="bg-gray-800/60 rounded-xl p-4 border border-gray-700/50">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Saúde Fiscal</p>
+            <p className="text-xs text-gray-600 mt-0.5">{formatMonth(currentMonth)}</p>
+          </div>
+          <div className="text-right leading-none">
+            <span className={`text-4xl font-bold ${scoreTextColor}`}>{scoreValue}</span>
+            <span className="text-sm text-gray-600"> /100</span>
+          </div>
+        </div>
+        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+          <div
+            className={`h-full ${scoreBarColor} rounded-full transition-all duration-500`}
+            style={{ width: `${scoreValue}%` }}
+          />
+        </div>
+        {applicableItems.length === 0 && (
+          <p className="text-xs text-gray-600 mt-2 italic">Configure os itens fiscais nas Configurações.</p>
+        )}
+      </div>
+
+      {/* Checklist do Mês Atual */}
+      {applicableItems.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            Checklist — {formatMonth(currentMonth)}
+          </p>
+          <div className="space-y-1.5">
+            {applicableItems.map(item => {
+              const state = currentChecks[item.id] ?? null
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => toggleCheck(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                    state === 'ok'
+                      ? 'bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/15'
+                      : state === 'pendente'
+                      ? 'bg-red-500/10 border-red-500/30 hover:bg-red-500/15'
+                      : 'bg-gray-800/60 border-gray-700/50 hover:border-gray-600'
+                  }`}
+                >
+                  <div className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    state === 'ok'      ? 'bg-emerald-500 text-white' :
+                    state === 'pendente'? 'bg-red-500 text-white' :
+                                         'bg-gray-700 text-gray-500'
+                  }`}>
+                    {state === 'ok' ? '✓' : state === 'pendente' ? '✗' : '?'}
+                  </div>
+                  <span className={`flex-1 text-sm font-medium ${
+                    state === 'ok'      ? 'text-emerald-300' :
+                    state === 'pendente'? 'text-red-300' :
+                                         'text-gray-400'
+                  }`}>
+                    {item.label}
+                  </span>
+                  <span className="text-[10px] text-gray-600">peso {item.weight}</span>
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-[10px] text-gray-600 mt-2 text-right">
+            Clique para alternar: Não consultado → Regular → Pendente
+          </p>
+        </div>
+      )}
+
+      {/* Tributos Pendentes */}
       <div>
         <div className="flex items-center gap-2 mb-3">
           <AlertTriangle size={14} className="text-orange-400" />
@@ -148,6 +260,7 @@ function AnalysisTab({ client }) {
         )}
       </div>
 
+      {/* Observações */}
       <div>
         <div className="flex items-center gap-2 mb-3">
           <FileText size={14} className="text-gray-400" />
@@ -160,43 +273,6 @@ function AnalysisTab({ client }) {
         </div>
       </div>
 
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Activity size={14} className="text-amber-400" />
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Análise geral</p>
-        </div>
-        <div className="bg-gray-800/60 rounded-xl p-4 border border-gray-700/50 space-y-2">
-          <AnalysisRow label="Situação fiscal"   value={FISCAL_LABEL[client.fiscalStatus]} colorClass={FISCAL_COLOR[client.fiscalStatus]} />
-          <AnalysisRow label="Relacionamento CX" value={CX_LABEL[client.cxStatus]}        colorClass={CX_COLOR[client.cxStatus]} />
-          <AnalysisRow
-            label="Score Fiscal"
-            value={`${client.scoreFiscal ?? 0}/100`}
-            colorClass={
-              (client.scoreFiscal ?? 0) >= 80 ? 'text-emerald-400' :
-              (client.scoreFiscal ?? 0) >= 55 ? 'text-yellow-400' :
-              (client.scoreFiscal ?? 0) >= 30 ? 'text-orange-400' : 'text-red-400'
-            }
-          />
-          <AnalysisRow
-            label="Score CX"
-            value={`${client.scoreCx ?? 0}/100`}
-            colorClass={
-              (client.scoreCx ?? 0) >= 80 ? 'text-emerald-400' :
-              (client.scoreCx ?? 0) >= 55 ? 'text-yellow-400' :
-              (client.scoreCx ?? 0) >= 30 ? 'text-orange-400' : 'text-red-400'
-            }
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function AnalysisRow({ label, value, colorClass }) {
-  return (
-    <div className="flex items-center justify-between py-1 border-b border-gray-700/40 last:border-0">
-      <span className="text-xs text-gray-500">{label}</span>
-      <span className={`text-xs font-semibold ${colorClass}`}>{value}</span>
     </div>
   )
 }
@@ -702,7 +778,7 @@ export default function ClientDetailModal({ client, onClose }) {
           </div>
           <div className="flex gap-1 mt-4 flex-wrap">
             <TabBtn active={tab === 'overview'} onClick={() => setTab('overview')}>Visão Geral</TabBtn>
-            <TabBtn active={tab === 'analysis'} onClick={() => setTab('analysis')}>Análise</TabBtn>
+            <TabBtn active={tab === 'analysis'} onClick={() => setTab('analysis')}>Análise Fiscal</TabBtn>
             <TabBtn active={tab === 'history'}  onClick={() => setTab('history')}>
               Histórico Fiscal{historyCount > 0 && (
                 <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-700 text-gray-400 text-[10px] font-bold">
