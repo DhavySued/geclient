@@ -33,11 +33,13 @@ export function useFiscalKanban(levelFilter, selectedMonth) {
 
     const history = client.fiscalHistory ?? []
     const existingIdx = history.findIndex(h => h.month === selectedMonth)
+    const existing = existingIdx >= 0 ? history[existingIdx] : null
     const snapshot = {
-      month: selectedMonth,
-      status: targetStatus,
+      month:        selectedMonth,
+      status:       targetStatus,
       pendingTaxes: client.pendingTaxes ?? [],
-      note: existingIdx >= 0 ? history[existingIdx].note : '',
+      note:         existing?.note   ?? '',
+      checks:       existing?.checks ?? {},
     }
     const updatedHistory = (
       existingIdx >= 0

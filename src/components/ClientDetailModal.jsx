@@ -151,10 +151,10 @@ function AnalysisTab({ client }) {
     scoreValue >= 55 ? 'bg-yellow-400' :
     scoreValue >= 30 ? 'bg-orange-500' : 'bg-red-600'
 
-  function toggleCheck(itemId) {
-    const checks  = { ...currentChecks }
-    const current = checks[itemId] ?? null
-    checks[itemId] = current === null ? 'ok' : current === 'ok' ? 'pendente' : null
+  function setCheck(itemId, value) {
+    const checks = { ...currentChecks }
+    // value = 'ok' | 'pendente' | null
+    checks[itemId] = checks[itemId] === value ? null : value
 
     const newScore  = calcFiscalScore(checks, applicableItems) ?? 0
     const baseEntry = currentEntry ?? {
@@ -204,25 +204,14 @@ function AnalysisTab({ client }) {
             {applicableItems.map(item => {
               const state = currentChecks[item.id] ?? null
               return (
-                <button
+                <div
                   key={item.id}
-                  type="button"
-                  onClick={() => toggleCheck(item.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
-                    state === 'ok'
-                      ? 'bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/15'
-                      : state === 'pendente'
-                      ? 'bg-red-500/10 border-red-500/30 hover:bg-red-500/15'
-                      : 'bg-gray-800/60 border-gray-700/50 hover:border-gray-600'
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${
+                    state === 'ok'      ? 'bg-emerald-500/10 border-emerald-500/30' :
+                    state === 'pendente'? 'bg-red-500/10 border-red-500/30' :
+                                         'bg-gray-800/60 border-gray-700/50'
                   }`}
                 >
-                  <div className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                    state === 'ok'      ? 'bg-emerald-500 text-white' :
-                    state === 'pendente'? 'bg-red-500 text-white' :
-                                         'bg-gray-700 text-gray-500'
-                  }`}>
-                    {state === 'ok' ? '✓' : state === 'pendente' ? '✗' : '?'}
-                  </div>
                   <span className={`flex-1 text-sm font-medium ${
                     state === 'ok'      ? 'text-emerald-300' :
                     state === 'pendente'? 'text-red-300' :
@@ -230,14 +219,34 @@ function AnalysisTab({ client }) {
                   }`}>
                     {item.label}
                   </span>
-                  <span className="text-[10px] text-gray-600">peso {item.weight}</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setCheck(item.id, 'ok')}
+                    title="Marcar como Regular"
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
+                      state === 'ok'
+                        ? 'bg-emerald-500 border-emerald-500 text-white'
+                        : 'bg-gray-700/50 border-gray-600 text-gray-500 hover:border-emerald-500/60 hover:text-emerald-400'
+                    }`}
+                  >
+                    ✓ Regular
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCheck(item.id, 'pendente')}
+                    title="Marcar como Pendente"
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
+                      state === 'pendente'
+                        ? 'bg-red-500 border-red-500 text-white'
+                        : 'bg-gray-700/50 border-gray-600 text-gray-500 hover:border-red-500/60 hover:text-red-400'
+                    }`}
+                  >
+                    ✗ Pendente
+                  </button>
+                </div>
               )
             })}
           </div>
-          <p className="text-[10px] text-gray-600 mt-2 text-right">
-            Clique para alternar: Não consultado → Regular → Pendente
-          </p>
         </div>
       )}
 
@@ -749,12 +758,16 @@ function FiscalHistoryTab({ client }) {
 
 export default function ClientDetailModal({ client, onClose }) {
   const [tab, setTab] = useState('overview')
-  const { tasks } = useTasks()
+  const { clients } = useClients()
+  const { tasks }   = useTasks()
 
-  if (!client) return null
+  // Sempre usa a versão live do contexto — atualizações refletem em tempo real sem fechar o modal
+  const liveClient = client ? (clients.find(c => c.id === client.id) ?? client) : null
 
-  const pendingCount = tasks.filter(t => t.clientId === client.id && t.status !== 'concluida').length
-  const historyCount = (client.fiscalHistory ?? []).length
+  if (!liveClient) return null
+
+  const pendingCount = tasks.filter(t => t.clientId === liveClient.id && t.status !== 'concluida').length
+  const historyCount = (liveClient.fiscalHistory ?? []).length
 
   return (
     <div
@@ -767,10 +780,10 @@ export default function ClientDetailModal({ client, onClose }) {
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                <LevelBadge level={client.level} />
-                <span className="text-xs text-gray-500">{client.cnpj}</span>
+                <LevelBadge level={liveClient.level} />
+                <span className="text-xs text-gray-500">{liveClient.cnpj}</span>
               </div>
-              <h2 className="text-lg font-bold text-white leading-tight">{client.name}</h2>
+              <h2 className="text-lg font-bold text-white leading-tight">{liveClient.name}</h2>
             </div>
             <button onClick={onClose} className="flex-shrink-0 text-gray-500 hover:text-gray-200 transition-colors p-1 rounded-lg hover:bg-gray-800">
               <X size={20} />
@@ -798,10 +811,10 @@ export default function ClientDetailModal({ client, onClose }) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5">
-          {tab === 'overview' && <OverviewTab       client={client} />}
-          {tab === 'analysis' && <AnalysisTab      client={client} />}
-          {tab === 'history'  && <FiscalHistoryTab client={client} />}
-          {tab === 'tasks'    && <TasksTab         client={client} />}
+          {tab === 'overview' && <OverviewTab       client={liveClient} />}
+          {tab === 'analysis' && <AnalysisTab      client={liveClient} />}
+          {tab === 'history'  && <FiscalHistoryTab client={liveClient} />}
+          {tab === 'tasks'    && <TasksTab         client={liveClient} />}
         </div>
       </div>
     </div>
