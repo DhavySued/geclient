@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useClients } from '../context/ClientsContext'
+import { useFiscalRecords } from '../context/FiscalRecordsContext'
 
 const FISCAL_STATUS_IDS = [
   'sem_consulta', 'com_pendencia', 'comunicado_cliente',
@@ -7,7 +8,8 @@ const FISCAL_STATUS_IDS = [
 ]
 
 export function useFiscalKanban(levelFilter, selectedMonth) {
-  const { clients, updateClient } = useClients()
+  const { clients, updateClient }        = useClients()
+  const { records, getRecord, upsertRecord } = useFiscalRecords()
 
   const filtered = useMemo(() => {
     if (levelFilter === 'all') return clients
@@ -16,8 +18,7 @@ export function useFiscalKanban(levelFilter, selectedMonth) {
 
   const columns = useMemo(() => {
     function getStatus(client) {
-      const entry = (client.fiscalHistory ?? []).find(h => h.month === selectedMonth)
-      return entry?.status ?? 'sem_consulta'
+      return getRecord(client.id, selectedMonth)?.status ?? 'sem_consulta'
     }
     return Object.fromEntries(
       FISCAL_STATUS_IDS.map(id => [
@@ -25,31 +26,19 @@ export function useFiscalKanban(levelFilter, selectedMonth) {
         { id, label: id, clients: filtered.filter(c => getStatus(c) === id) },
       ])
     )
-  }, [filtered, selectedMonth])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, selectedMonth, records])
 
-  function moveClient(clientId, targetStatus) {
-    const client = clients.find(c => c.id === clientId)
-    if (!client) return
-
-    const history = client.fiscalHistory ?? []
-    const existingIdx = history.findIndex(h => h.month === selectedMonth)
-    const existing = existingIdx >= 0 ? history[existingIdx] : null
-    const snapshot = {
-      month:        selectedMonth,
+  async function moveClient(clientId, targetStatus) {
+    const existing = getRecord(clientId, selectedMonth)
+    await upsertRecord(clientId, selectedMonth, {
       status:       targetStatus,
-      pendingTaxes: client.pendingTaxes ?? [],
-      note:         existing?.note   ?? '',
-      checks:       existing?.checks ?? {},
-    }
-    const updatedHistory = (
-      existingIdx >= 0
-        ? history.map((h, i) => i === existingIdx ? snapshot : h)
-        : [snapshot, ...history]
-    ).sort((a, b) => b.month.localeCompare(a.month))
-
-    // fiscalStatus reflete sempre o mês mais recente
-    const latestStatus = updatedHistory[0]?.status ?? 'sem_consulta'
-    updateClient(clientId, { fiscalHistory: updatedHistory, fiscalStatus: latestStatus })
+      checks:       existing?.checks       ?? {},
+      pendingTaxes: existing?.pendingTaxes ?? [],
+      note:         existing?.note         ?? '',
+    })
+    // fiscalStatus no cliente reflete a coluna atual do kanban
+    updateClient(clientId, { fiscalStatus: targetStatus })
   }
 
   return { columns, moveClient }

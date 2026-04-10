@@ -10,6 +10,7 @@ import { useClients } from '../context/ClientsContext'
 import { calcFiscalScore, getApplicableItems } from '../hooks/useFiscalItems'
 import { useFiscalItemsCtx } from '../context/FiscalItemsContext'
 import { useFiscalConfig } from '../context/FiscalConfigContext'
+import { useFiscalRecords } from '../context/FiscalRecordsContext'
 import LevelBadge from './LevelBadge'
 import RichTextEditor from './RichTextEditor'
 import TaskItem, { TemplateCard } from './TaskItem'
@@ -127,16 +128,16 @@ function InfoCard({ icon: Icon, label, value, valueClass = 'text-gray-200' }) {
 
 // ── Analysis Tab ───────────────────────────────────────────────────────────
 
-function AnalysisTab({ client }) {
+function AnalysisTab({ client, selectedMonth }) {
   const { updateClient }                           = useClients()
+  const { getRecord, upsertRecord }                = useFiscalRecords()
   const { fiscalItems }                            = useFiscalItemsCtx()
   const { regimeItems, conditionItems, tipoItems } = useFiscalConfig()
   const applicableItems = getApplicableItems(client, fiscalItems, regimeItems, conditionItems, tipoItems)
 
-  const currentMonth  = new Date().toISOString().slice(0, 7)
-  const history       = client.fiscalHistory ?? []
-  const currentEntry  = history.find(h => h.month === currentMonth)
-  const currentChecks = currentEntry?.checks ?? {}
+  const activeMonth   = selectedMonth ?? new Date().toISOString().slice(0, 7)
+  const record        = getRecord(client.id, activeMonth)
+  const currentChecks = record?.checks ?? {}
   const currentScore  = applicableItems.length > 0
     ? calcFiscalScore(currentChecks, applicableItems)
     : null
@@ -151,21 +152,17 @@ function AnalysisTab({ client }) {
     scoreValue >= 55 ? 'bg-yellow-400' :
     scoreValue >= 30 ? 'bg-orange-500' : 'bg-red-600'
 
-  function setCheck(itemId, value) {
+  async function setCheck(itemId, value) {
     const checks = { ...currentChecks }
-    // value = 'ok' | 'pendente' | null
     checks[itemId] = checks[itemId] === value ? null : value
-
-    const newScore  = calcFiscalScore(checks, applicableItems) ?? 0
-    const baseEntry = currentEntry ?? {
-      month: currentMonth, status: client.fiscalStatus,
-      pendingTaxes: client.pendingTaxes ?? [], note: '', checks: {},
-    }
-    const updated = currentEntry
-      ? history.map(h => h.month === currentMonth ? { ...h, checks } : h)
-      : [{ ...baseEntry, checks }, ...history]
-
-    updateClient(client.id, { fiscalHistory: updated, scoreFiscal: newScore })
+    const newScore = calcFiscalScore(checks, applicableItems) ?? 0
+    await upsertRecord(client.id, activeMonth, {
+      status:       record?.status       ?? client.fiscalStatus,
+      checks,
+      pendingTaxes: record?.pendingTaxes ?? client.pendingTaxes ?? [],
+      note:         record?.note         ?? '',
+    })
+    updateClient(client.id, { scoreFiscal: newScore })
   }
 
   return (
@@ -176,7 +173,7 @@ function AnalysisTab({ client }) {
         <div className="flex items-center justify-between mb-3">
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Saúde Fiscal</p>
-            <p className="text-xs text-gray-600 mt-0.5">{formatMonth(currentMonth)}</p>
+            <p className="text-xs text-gray-600 mt-0.5">{formatMonth(activeMonth)}</p>
           </div>
           <div className="text-right leading-none">
             <span className={`text-4xl font-bold ${scoreTextColor}`}>{scoreValue}</span>
@@ -198,7 +195,7 @@ function AnalysisTab({ client }) {
       {applicableItems.length > 0 && (
         <div>
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-            Checklist — {formatMonth(currentMonth)}
+            Checklist — {formatMonth(activeMonth)}
           </p>
           <div className="space-y-1.5">
             {applicableItems.map(item => {
@@ -558,48 +555,47 @@ function FiscalScoreBar({ score }) {
 }
 
 function FiscalHistoryTab({ client }) {
-  const { updateClient } = useClients()
-  const { fiscalItems }                 = useFiscalItemsCtx()
+  const { getClientHistory, upsertRecord } = useFiscalRecords()
+  const { fiscalItems }                    = useFiscalItemsCtx()
   const { regimeItems, conditionItems, tipoItems } = useFiscalConfig()
   const applicableItems = getApplicableItems(client, fiscalItems, regimeItems, conditionItems, tipoItems)
-  const currentMonth           = new Date().toISOString().slice(0, 7)
-  const history                = client.fiscalHistory ?? []
-  const hasCurrentMonth        = history.some(h => h.month === currentMonth)
+  const currentMonth    = new Date().toISOString().slice(0, 7)
+  const history         = getClientHistory(client.id)
+  const hasCurrentMonth = history.some(h => h.month === currentMonth)
 
   const [editingNote, setEditingNote] = useState(null)
   const [noteValue,   setNoteValue]   = useState('')
   const [expanded,    setExpanded]    = useState({})
 
-  function registerCurrentMonth() {
+  async function registerCurrentMonth() {
     const existing = history.find(h => h.month === currentMonth)
-    const snapshot = {
-      month:        currentMonth,
-      status:       client.fiscalStatus,
-      pendingTaxes: client.pendingTaxes ?? [],
-      note:         existing?.note ?? '',
-      checks:       existing?.checks ?? {},
-    }
-    const updated = existing
-      ? history.map(h => h.month === currentMonth ? snapshot : h)
-      : [snapshot, ...history]
-    updateClient(client.id, { fiscalHistory: updated })
+    await upsertRecord(client.id, currentMonth, {
+      status:       existing?.status       ?? client.fiscalStatus,
+      checks:       existing?.checks       ?? {},
+      pendingTaxes: existing?.pendingTaxes ?? client.pendingTaxes ?? [],
+      note:         existing?.note         ?? '',
+    })
   }
 
-  function toggleCheck(entry, itemId) {
+  async function toggleCheck(entry, itemId) {
     const checks  = { ...(entry.checks ?? {}) }
     const current = checks[itemId] ?? null
     checks[itemId] = current === null ? 'ok' : current === 'ok' ? 'pendente' : null
-    const updated = history.map(h =>
-      h.month === entry.month ? { ...h, checks } : h
-    )
-    updateClient(client.id, { fiscalHistory: updated })
+    await upsertRecord(client.id, entry.month, {
+      status:       entry.status,
+      checks,
+      pendingTaxes: entry.pendingTaxes ?? [],
+      note:         entry.note ?? '',
+    })
   }
 
-  function saveNote(entry) {
-    const updated = history.map(h =>
-      h.month === entry.month ? { ...h, note: noteValue } : h
-    )
-    updateClient(client.id, { fiscalHistory: updated })
+  async function saveNote(entry) {
+    await upsertRecord(client.id, entry.month, {
+      status:       entry.status,
+      checks:       entry.checks ?? {},
+      pendingTaxes: entry.pendingTaxes ?? [],
+      note:         noteValue,
+    })
     setEditingNote(null)
   }
 
@@ -756,10 +752,11 @@ function FiscalHistoryTab({ client }) {
 
 // ── Main Modal ─────────────────────────────────────────────────────────────
 
-export default function ClientDetailModal({ client, onClose }) {
+export default function ClientDetailModal({ client, selectedMonth, onClose }) {
   const [tab, setTab] = useState('overview')
-  const { clients } = useClients()
-  const { tasks }   = useTasks()
+  const { clients }          = useClients()
+  const { tasks }            = useTasks()
+  const { getClientHistory } = useFiscalRecords()
 
   // Sempre usa a versão live do contexto — atualizações refletem em tempo real sem fechar o modal
   const liveClient = client ? (clients.find(c => c.id === client.id) ?? client) : null
@@ -767,7 +764,7 @@ export default function ClientDetailModal({ client, onClose }) {
   if (!liveClient) return null
 
   const pendingCount = tasks.filter(t => t.clientId === liveClient.id && t.status !== 'concluida').length
-  const historyCount = (liveClient.fiscalHistory ?? []).length
+  const historyCount = getClientHistory(liveClient.id).length
 
   return (
     <div
@@ -812,7 +809,7 @@ export default function ClientDetailModal({ client, onClose }) {
         {/* Content */}
         <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5">
           {tab === 'overview' && <OverviewTab       client={liveClient} />}
-          {tab === 'analysis' && <AnalysisTab      client={liveClient} />}
+          {tab === 'analysis' && <AnalysisTab      client={liveClient} selectedMonth={selectedMonth} />}
           {tab === 'history'  && <FiscalHistoryTab client={liveClient} />}
           {tab === 'tasks'    && <TasksTab         client={liveClient} />}
         </div>

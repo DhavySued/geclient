@@ -37,16 +37,15 @@ export function ClientsProvider({ children }) {
   // ── Add ──────────────────────────────────────────────────────────────────
   async function addClient(data) {
     const payload = toDb({
-      fiscalStatus:  'sem_consulta',
-      fiscalHistory: [],
-      hasEmployees:  false,
-      hasProLabore:  false,
-      cxStatus:      'cliente_novo',
-      scoreFiscal:   0,
-      scoreCx:       0,
+      fiscalStatus:    'sem_consulta',
+      hasEmployees:    false,
+      hasProLabore:    false,
+      cxStatus:        'cliente_novo',
+      scoreFiscal:     0,
+      scoreCx:         0,
       lastInteraction: new Date().toISOString().slice(0, 10),
-      pendingTaxes:  [],
-      notes:         '',
+      pendingTaxes:    [],
+      notes:           '',
       ...data,
     })
     const { data: rows, error: err } = await supabase
@@ -65,7 +64,7 @@ export function ClientsProvider({ children }) {
     const dbUpdates = {}
     const map = {
       name: 'name', cnpj: 'cnpj', level: 'level', regime: 'regime', tipo: 'tipo',
-      fiscalStatus: 'fiscal_status', fiscalHistory: 'fiscal_history',
+      fiscalStatus: 'fiscal_status',
       hasEmployees: 'has_employees', hasProLabore: 'has_pro_labore',
       cxStatus: 'cx_status', scoreFiscal: 'score_fiscal', scoreCx: 'score_cx',
       pendingTaxes: 'pending_taxes',

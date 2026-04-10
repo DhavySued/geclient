@@ -5,6 +5,7 @@ import { UsersProvider } from './context/UsersContext'
 import { SettingsProvider } from './context/SettingsContext'
 import { FiscalItemsProvider } from './context/FiscalItemsContext'
 import { FiscalConfigProvider } from './context/FiscalConfigContext'
+import { FiscalRecordsProvider } from './context/FiscalRecordsContext'
 import Sidebar from './components/Sidebar'
 import ClientDetailModal from './components/ClientDetailModal'
 import FiscalPage from './pages/FiscalPage'
@@ -19,7 +20,13 @@ import { Loader2, AlertTriangle } from 'lucide-react'
 function AppContent() {
   const [activePage, setActivePage] = useState('cadastro')
   const [selectedClient, setSelectedClient] = useState(null)
+  const [selectedMonth, setSelectedMonth]   = useState(null)
   const { loading, error, refetch } = useClients()
+
+  function openClient(client, month = null) {
+    setSelectedClient(client)
+    setSelectedMonth(month)
+  }
 
   if (loading) {
     return (
@@ -56,10 +63,10 @@ function AppContent() {
       <main className="flex-1 ml-64 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto scrollbar-thin px-8 py-7">
           {activePage === 'cadastro'  && <CadastroPage />}
-          {activePage === 'fiscal'    && <FiscalPage    onOpenClient={setSelectedClient} />}
-          {activePage === 'cx'        && <CXPage        onOpenClient={setSelectedClient} />}
-          {activePage === 'tasks'     && <TasksPage     onOpenClient={setSelectedClient} />}
-          {activePage === 'calendar'  && <CalendarPage  onOpenClient={setSelectedClient} />}
+          {activePage === 'fiscal'    && <FiscalPage    onOpenClient={openClient} />}
+          {activePage === 'cx'        && <CXPage        onOpenClient={client => openClient(client)} />}
+          {activePage === 'tasks'     && <TasksPage     onOpenClient={client => openClient(client)} />}
+          {activePage === 'calendar'  && <CalendarPage  onOpenClient={client => openClient(client)} />}
           {activePage === 'users'     && <UsersPage />}
           {activePage === 'settings'  && <SettingsPage />}
         </div>
@@ -67,7 +74,8 @@ function AppContent() {
 
       <ClientDetailModal
         client={selectedClient}
-        onClose={() => setSelectedClient(null)}
+        selectedMonth={selectedMonth}
+        onClose={() => { setSelectedClient(null); setSelectedMonth(null) }}
       />
     </div>
   )
@@ -78,13 +86,15 @@ export default function App() {
     <SettingsProvider>
       <FiscalItemsProvider>
         <FiscalConfigProvider>
-          <ClientsProvider>
-            <UsersProvider>
-              <TasksProvider>
-                <AppContent />
-              </TasksProvider>
-            </UsersProvider>
-          </ClientsProvider>
+          <FiscalRecordsProvider>
+            <ClientsProvider>
+              <UsersProvider>
+                <TasksProvider>
+                  <AppContent />
+                </TasksProvider>
+              </UsersProvider>
+            </ClientsProvider>
+          </FiscalRecordsProvider>
         </FiscalConfigProvider>
       </FiscalItemsProvider>
     </SettingsProvider>

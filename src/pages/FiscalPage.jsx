@@ -160,7 +160,7 @@ export default function FiscalPage({ onOpenClient }) {
                     key={client.id}
                     client={client}
                     index={index}
-                    onOpen={onOpenClient}
+                    onOpen={c => onOpenClient(c, selectedMonth)}
                     selectedMonth={selectedMonth}
                   />
                 ))}
