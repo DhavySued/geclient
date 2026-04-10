@@ -38,7 +38,8 @@ export function FiscalItemsProvider({ children }) {
   const addFiscalItem = useCallback(async ({ label, weight }) => {
     const { error: err } = await supabase.from('fiscal_items').insert({ label, weight })
     if (err) throw new Error(err.message)
-  }, [])
+    await fetchItems()
+  }, [fetchItems])
 
   const updateFiscalItem = useCallback(async (id, updates) => {
     const { error: err } = await supabase.from('fiscal_items').update(updates).eq('id', id)
