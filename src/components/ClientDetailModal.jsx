@@ -128,6 +128,26 @@ function InfoCard({ icon: Icon, label, value, valueClass = 'text-gray-200' }) {
 
 // ── Analysis Tab ───────────────────────────────────────────────────────────
 
+function ScoreTooltip() {
+  const [visible, setVisible] = useState(false)
+  return (
+    <span className="relative" onMouseEnter={() => setVisible(true)} onMouseLeave={() => setVisible(false)}>
+      <Info size={12} className="cursor-help text-gray-600 hover:text-amber-400 transition-colors" />
+      {visible && (
+        <div className="absolute left-5 top-0 z-50 w-64 bg-gray-800 border border-gray-600 rounded-xl p-3 shadow-xl text-left">
+          <p className="text-xs font-semibold text-gray-200 mb-1.5">Como é calculado</p>
+          <ul className="space-y-1 text-xs text-gray-400">
+            <li>• Cada item fiscal tem um <span className="text-gray-200">peso</span> (padrão: 10).</li>
+            <li>• Score = pesos dos itens <span className="text-emerald-400">✓ Regular</span> ÷ peso total × 100.</li>
+            <li>• Itens <span className="text-red-400">✗ Pendente</span> ou sem marcação <span className="text-gray-500">não somam</span>.</li>
+          </ul>
+          <p className="text-[10px] text-gray-600 mt-2 border-t border-gray-700 pt-2">Ex: 4 itens × peso 10 → 3 regulares = score 75</p>
+        </div>
+      )}
+    </span>
+  )
+}
+
 function AnalysisTab({ client, selectedMonth }) {
   const { updateClient }                           = useClients()
   const { getRecord, upsertRecord }                = useFiscalRecords()
@@ -137,33 +157,58 @@ function AnalysisTab({ client, selectedMonth }) {
 
   const activeMonth   = selectedMonth ?? new Date().toISOString().slice(0, 7)
   const record        = getRecord(client.id, activeMonth)
-  const currentChecks = record?.checks ?? {}
-  const currentScore  = applicableItems.length > 0
-    ? calcFiscalScore(currentChecks, applicableItems)
-    : null
-  const scoreValue    = currentScore ?? 0
+  const savedChecks   = record?.checks ?? {}
+
+  // Draft local — só persiste ao clicar em Salvar
+  const [draft,   setDraft]   = useState(() => ({ ...savedChecks }))
+  const [saving,  setSaving]  = useState(false)
+
+  // Sincroniza draft quando o registro externo muda (ex: outro usuário ou tab)
+  const savedKey = JSON.stringify(savedChecks)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useState(() => { setDraft({ ...savedChecks }) }, [savedKey])
+
+  const isDirty      = JSON.stringify(draft) !== JSON.stringify(savedChecks)
+  const allMarked    = applicableItems.length > 0 &&
+    applicableItems.every(i => draft[i.id] === 'ok' || draft[i.id] === 'pendente')
+  const canSave      = isDirty && allMarked
+
+  const previewScore = applicableItems.length > 0 ? calcFiscalScore(draft, applicableItems) ?? 0 : 0
+  const displayScore = isDirty ? previewScore : (calcFiscalScore(savedChecks, applicableItems) ?? 0)
 
   const scoreTextColor =
-    scoreValue >= 80 ? 'text-emerald-400' :
-    scoreValue >= 55 ? 'text-yellow-300' :
-    scoreValue >= 30 ? 'text-orange-400' : 'text-red-400'
+    displayScore >= 80 ? 'text-emerald-400' :
+    displayScore >= 55 ? 'text-yellow-300' :
+    displayScore >= 30 ? 'text-orange-400' : 'text-red-400'
   const scoreBarColor =
-    scoreValue >= 80 ? 'bg-emerald-500' :
-    scoreValue >= 55 ? 'bg-yellow-400' :
-    scoreValue >= 30 ? 'bg-orange-500' : 'bg-red-600'
+    displayScore >= 80 ? 'bg-emerald-500' :
+    displayScore >= 55 ? 'bg-yellow-400' :
+    displayScore >= 30 ? 'bg-orange-500' : 'bg-red-600'
 
-  async function setCheck(itemId, value) {
-    const checks = { ...currentChecks }
-    checks[itemId] = checks[itemId] === value ? null : value
-    const newScore = calcFiscalScore(checks, applicableItems) ?? 0
-    await upsertRecord(client.id, activeMonth, {
-      status:       record?.status       ?? client.fiscalStatus,
-      checks,
-      pendingTaxes: record?.pendingTaxes ?? client.pendingTaxes ?? [],
-      note:         record?.note         ?? '',
-    })
-    updateClient(client.id, { scoreFiscal: newScore })
+  function setCheck(itemId, value) {
+    setDraft(prev => ({ ...prev, [itemId]: prev[itemId] === value ? null : value }))
   }
+
+  function handleCancel() {
+    setDraft({ ...savedChecks })
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await upsertRecord(client.id, activeMonth, {
+        status:       record?.status       ?? client.fiscalStatus,
+        checks:       draft,
+        pendingTaxes: record?.pendingTaxes ?? client.pendingTaxes ?? [],
+        note:         record?.note         ?? '',
+      })
+      updateClient(client.id, { scoreFiscal: previewScore })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const unmarkedCount = applicableItems.filter(i => !draft[i.id]).length
 
   return (
     <div className="space-y-5">
@@ -205,24 +250,19 @@ function AnalysisTab({ client, selectedMonth }) {
           <div>
             <div className="flex items-center gap-1.5">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Saúde Fiscal</p>
-              <span
-                title={`Como é calculado:\n• Cada item tem um peso (padrão 10).\n• Score = soma dos pesos dos itens marcados como ✓ Regular ÷ soma total dos pesos × 100.\n• Itens sem marcação ou marcados como ✗ Pendente não somam ao score.\n\nEx: 4 itens (peso 10 cada) → marcar 3 como Regular = score 75.`}
-                className="cursor-help text-gray-600 hover:text-gray-400 transition-colors"
-              >
-                <Info size={12} />
-              </span>
+              <ScoreTooltip />
             </div>
             <p className="text-xs text-gray-600 mt-0.5">{formatMonth(activeMonth)}</p>
           </div>
           <div className="text-right leading-none">
-            <span className={`text-4xl font-bold ${scoreTextColor}`}>{scoreValue}</span>
+            <span className={`text-4xl font-bold ${scoreTextColor}`}>{displayScore}</span>
             <span className="text-sm text-gray-600"> /100</span>
           </div>
         </div>
         <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
           <div
             className={`h-full ${scoreBarColor} rounded-full transition-all duration-500`}
-            style={{ width: `${scoreValue}%` }}
+            style={{ width: `${displayScore}%` }}
           />
         </div>
         {applicableItems.length === 0 && (
@@ -230,35 +270,40 @@ function AnalysisTab({ client, selectedMonth }) {
         )}
       </div>
 
-      {/* Checklist do Mês Atual */}
+      {/* Checklist */}
       {applicableItems.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-            Checklist — {formatMonth(activeMonth)}
-          </p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Checklist — {formatMonth(activeMonth)}
+            </p>
+            {isDirty && unmarkedCount > 0 && (
+              <span className="text-[10px] text-orange-400">{unmarkedCount} item{unmarkedCount > 1 ? 's' : ''} sem marcação</span>
+            )}
+          </div>
           <div className="space-y-1.5">
             {applicableItems.map(item => {
-              const state = currentChecks[item.id] ?? null
+              const state = draft[item.id] ?? null
               return (
                 <div
                   key={item.id}
                   className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${
                     state === 'ok'      ? 'bg-emerald-500/10 border-emerald-500/30' :
                     state === 'pendente'? 'bg-red-500/10 border-red-500/30' :
-                                         'bg-gray-800/60 border-gray-700/50'
+                                         'bg-gray-800/60 border-orange-500/30'
                   }`}
                 >
                   <span className={`flex-1 text-sm font-medium ${
                     state === 'ok'      ? 'text-emerald-300' :
                     state === 'pendente'? 'text-red-300' :
-                                         'text-gray-400'
+                                         'text-orange-300/70'
                   }`}>
                     {item.label}
+                    {!state && <span className="ml-1 text-[10px] text-orange-500/80">*</span>}
                   </span>
                   <button
                     type="button"
                     onClick={() => setCheck(item.id, 'ok')}
-                    title="Marcar como Regular"
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
                       state === 'ok'
                         ? 'bg-emerald-500 border-emerald-500 text-white'
@@ -270,7 +315,6 @@ function AnalysisTab({ client, selectedMonth }) {
                   <button
                     type="button"
                     onClick={() => setCheck(item.id, 'pendente')}
-                    title="Marcar como Pendente"
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
                       state === 'pendente'
                         ? 'bg-red-500 border-red-500 text-white'
@@ -283,6 +327,32 @@ function AnalysisTab({ client, selectedMonth }) {
               )
             })}
           </div>
+
+          {/* Salvar / Cancelar */}
+          {isDirty && (
+            <div className="flex gap-2 mt-3">
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={!canSave || saving}
+                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  canSave && !saving
+                    ? 'bg-amber-500 hover:bg-amber-400 text-gray-900'
+                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {saving ? 'Salvando…' : canSave ? 'Salvar' : `Marque todos os itens (${unmarkedCount} restante${unmarkedCount > 1 ? 's' : ''})`}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={saving}
+                className="px-4 py-2 rounded-xl border border-gray-700 text-gray-400 hover:text-gray-200 text-sm transition-all"
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
         </div>
       )}
 
