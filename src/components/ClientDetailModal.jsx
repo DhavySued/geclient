@@ -168,6 +168,37 @@ function AnalysisTab({ client, selectedMonth }) {
   return (
     <div className="space-y-5">
 
+      {/* Resumo da empresa */}
+      <div className="bg-gray-800/60 rounded-xl p-3 border border-gray-700/50">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2.5">Perfil da Empresa</p>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500 w-20 flex-shrink-0">Regime</span>
+            <span className="text-xs font-medium text-gray-200 truncate">{client.regime || '—'}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500 w-20 flex-shrink-0">Tipo</span>
+            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
+              client.tipo === 'Comércio' ? 'text-blue-300 bg-blue-500/15' :
+              client.tipo === 'Misto'    ? 'text-purple-300 bg-purple-500/15' :
+                                           'text-emerald-300 bg-emerald-500/15'
+            }`}>{client.tipo || 'Serviço'}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500 w-20 flex-shrink-0">Empregados</span>
+            <span className={`text-xs font-medium ${client.hasEmployees ? 'text-amber-300' : 'text-gray-500'}`}>
+              {client.hasEmployees ? 'Sim' : 'Não'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500 w-20 flex-shrink-0">Pró-labore</span>
+            <span className={`text-xs font-medium ${client.hasProLabore ? 'text-amber-300' : 'text-gray-500'}`}>
+              {client.hasProLabore ? 'Sim' : 'Não'}
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Score Fiscal em destaque */}
       <div className="bg-gray-800/60 rounded-xl p-4 border border-gray-700/50">
         <div className="flex items-center justify-between mb-3">
