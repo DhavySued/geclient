@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { DragDropContext } from '@hello-pangea/dnd'
 import { BarChart3, Settings2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useFiscalKanban } from '../hooks/useKanban'
@@ -86,61 +86,78 @@ export default function FiscalPage({ onOpenClient }) {
   const { columns, updateLabel, reorder }      = useKanbanSettings('fiscal', DEFAULT_COLUMNS)
   const { getRecord }                          = useFiscalRecords()
 
-  // ── Drag snapshot: congela a ordem visual durante e logo após o drag ──────
-  const snapshotRef  = useRef(null)   // { [colId]: client[] }
-  const releaseTimer = useRef(null)
-  const [snapTick, setSnapTick] = useState(0) // força re-render ao mudar snapshot
+  // ── Ordem local permanente — nunca reordenada pelo data store ─────────────
+  // null = não inicializado ainda
+  const [localCols, setLocalCols] = useState(null)
 
-  function captureSnapshot(override = {}) {
-    const snap = {}
-    columns.forEach(col => {
-      snap[col.id] = [...(kanbanColumns[col.id]?.clients ?? [])]
+  // Reset quando mês ou filtro muda
+  useEffect(() => { setLocalCols(null) }, [selectedMonth, levelFilter])
+
+  // Sincroniza com kanbanColumns: inicializa na primeira carga e depois só
+  // adiciona/remove clientes sem reordenar os existentes
+  useEffect(() => {
+    setLocalCols(prev => {
+      // Mapa clientId → colId e clientId → objeto client (versão atualizada)
+      const colOf  = {}
+      const objOf  = {}
+      columns.forEach(col => {
+        ;(kanbanColumns[col.id]?.clients ?? []).forEach(c => {
+          colOf[c.id] = col.id
+          objOf[c.id] = c
+        })
+      })
+
+      if (!prev) {
+        // Primeira carga: usa a ordem do data store
+        const initial = {}
+        columns.forEach(col => { initial[col.id] = [...(kanbanColumns[col.id]?.clients ?? [])] })
+        return initial
+      }
+
+      // IDs que já existiam localmente
+      const prevIds = new Set(columns.flatMap(col => (prev[col.id] ?? []).map(c => c.id)))
+
+      const next = {}
+      columns.forEach(col => {
+        // Mantém a ordem local, atualiza objetos e filtra removidos/mudados de coluna
+        const kept = (prev[col.id] ?? [])
+          .filter(c => colOf[c.id] === col.id)   // ainda pertence a esta coluna
+          .map(c => objOf[c.id] ?? c)             // usa objeto atualizado
+
+        // Novos clientes que ainda não estão no estado local → topo da coluna
+        const added = (kanbanColumns[col.id]?.clients ?? [])
+          .filter(c => !prevIds.has(c.id))
+
+        next[col.id] = [...added, ...kept]
+      })
+      return next
     })
-    snapshotRef.current = { ...snap, ...override }
-    setSnapTick(t => t + 1)
-  }
-
-  function releaseSnapshot(delay = 700) {
-    if (releaseTimer.current) clearTimeout(releaseTimer.current)
-    releaseTimer.current = setTimeout(() => {
-      snapshotRef.current = null
-      setSnapTick(t => t + 1)
-    }, delay)
-  }
+  }, [kanbanColumns]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function getColClients(colId) {
-    return snapshotRef.current?.[colId] ?? kanbanColumns[colId]?.clients ?? []
+    return localCols?.[colId] ?? kanbanColumns[colId]?.clients ?? []
   }
 
   const totalVisible = columns.reduce((sum, col) => sum + getColClients(col.id).length, 0)
 
-  function onBeforeDragStart() {
-    if (releaseTimer.current) clearTimeout(releaseTimer.current)
-    captureSnapshot()
-  }
-
   function onDragEnd(result) {
     const { destination, source, draggableId } = result
-    if (!destination || (destination.droppableId === source.droppableId && destination.index === source.index)) {
-      releaseSnapshot(0)
-      return
-    }
+    if (!destination || (destination.droppableId === source.droppableId && destination.index === source.index)) return
 
-    // Reordena o snapshot para refletir exatamente onde o card foi solto
-    const current = snapshotRef.current ?? {}
-    const newSnap = {}
-    columns.forEach(col => { newSnap[col.id] = [...(current[col.id] ?? [])] })
-
-    const srcList = newSnap[source.droppableId]
-    const [moved] = srcList.splice(source.index, 1)
-    const destList = newSnap[destination.droppableId]
-    destList.splice(destination.index, 0, moved)
-
-    snapshotRef.current = newSnap
-    setSnapTick(t => t + 1)
+    // Reordena localCols no ponto exato do drop — persiste para sempre
+    setLocalCols(prev => {
+      if (!prev) return prev
+      const next = {}
+      columns.forEach(col => { next[col.id] = [...(prev[col.id] ?? [])] })
+      const srcList = next[source.droppableId]
+      const idx = srcList.findIndex(c => c.id === draggableId)
+      if (idx === -1) return prev
+      const [moved] = srcList.splice(idx, 1)
+      next[destination.droppableId].splice(destination.index, 0, moved)
+      return next
+    })
 
     moveClient(draggableId, destination.droppableId).catch(console.error)
-    releaseSnapshot(800)
   }
 
   return (
@@ -193,7 +210,7 @@ export default function FiscalPage({ onOpenClient }) {
       </div>
 
       {/* Kanban Board */}
-      <DragDropContext onBeforeDragStart={onBeforeDragStart} onDragEnd={onDragEnd}>
+      <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin flex-1">
           {columns.map(col => {
             const colClients = getColClients(col.id)
