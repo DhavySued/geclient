@@ -25,12 +25,12 @@ export function fromDb(row) {
     scoreFiscal:    row.score_fiscal ?? 0,
     scoreCx:        row.score_cx ?? 0,
     pendingTaxes:   row.pending_taxes ?? [],
-    hasEmployees:   row.has_employees ?? false,
-    hasProLabore:   row.has_pro_labore ?? false,
+    hasEmployees:        row.has_employees ?? false,
+    hasProLabore:        row.has_pro_labore ?? false,
+    emExclusaoSimples:   row.em_exclusao_simples ?? false,
+    active:              row.active ?? true,
     lastInteraction: row.last_interaction,
-    responsible:    row.responsible ?? '',
     notes:          row.notes ?? '',
-    monthlyRevenue: Number(row.monthly_revenue ?? 0),
   }
 }
 
@@ -46,11 +46,11 @@ export function toDb(client) {
     score_fiscal:    client.scoreFiscal ?? 0,
     score_cx:        client.scoreCx ?? 0,
     pending_taxes:   client.pendingTaxes ?? [],
-    has_employees:   client.hasEmployees ?? false,
-    has_pro_labore:  client.hasProLabore ?? false,
+    has_employees:        client.hasEmployees ?? false,
+    has_pro_labore:       client.hasProLabore ?? false,
+    em_exclusao_simples:  client.emExclusaoSimples ?? false,
+    active:               client.active ?? true,
     last_interaction: client.lastInteraction ?? new Date().toISOString().slice(0, 10),
-    responsible:     client.responsible ?? '',
     notes:           client.notes ?? '',
-    monthly_revenue: client.monthlyRevenue ?? 0,
   }
 }

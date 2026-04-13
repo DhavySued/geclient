@@ -23,8 +23,8 @@ function ToolbarBtn({ onMouseDown, title, active, children }) {
       title={title}
       className={`p-1.5 rounded transition-all ${
         active
-          ? 'bg-amber-500/20 text-amber-300'
-          : 'text-gray-400 hover:text-gray-100 hover:bg-gray-700'
+          ? 'bg-brand-500/20 text-brand-300'
+          : 'text-gray-400 hover:text-gray-900 hover:bg-gray-700'
       }`}
     >
       {children}
@@ -62,9 +62,9 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Digite 
   }
 
   return (
-    <div className="border border-gray-700 rounded-lg overflow-hidden focus-within:border-amber-500/40 transition-colors bg-gray-900">
+    <div className="border border-gray-200 rounded-lg overflow-hidden focus-within:border-brand-500/40 transition-colors bg-white">
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-gray-700 bg-gray-900/90 flex-wrap">
+      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-gray-200 bg-white/90 flex-wrap">
         <ToolbarBtn onMouseDown={handleMouseDown('bold')}      title="Negrito (Ctrl+B)"><Bold size={13} /></ToolbarBtn>
         <ToolbarBtn onMouseDown={handleMouseDown('italic')}    title="Itálico (Ctrl+I)"><Italic size={13} /></ToolbarBtn>
         <ToolbarBtn onMouseDown={handleMouseDown('underline')} title="Sublinhado (Ctrl+U)"><Underline size={13} /></ToolbarBtn>
@@ -110,7 +110,7 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Digite 
         suppressContentEditableWarning
         onInput={() => onChange(editorRef.current?.innerHTML || '')}
         data-placeholder={placeholder}
-        className="rich-editor p-3 text-sm text-gray-200 focus:outline-none overflow-y-auto scrollbar-thin"
+        className="rich-editor p-3 text-sm text-gray-700 focus:outline-none overflow-y-auto scrollbar-thin"
         style={{ minHeight: `${minHeight}px`, maxHeight: '240px' }}
       />
     </div>

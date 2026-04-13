@@ -94,24 +94,24 @@ function CalendarPopup({ value, anchorRef, onSelect, onClose }) {
     <div
       ref={popupRef}
       style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999, width: 256 }}
-      className="bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl p-3 select-none"
+      className="bg-white border border-gray-200 rounded-2xl shadow-2xl p-3 select-none"
     >
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-3 px-1">
         <button
           type="button"
           onMouseDown={e => { e.preventDefault(); prevMonth() }}
-          className="p-1 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-gray-800 transition-all"
+          className="p-1 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all"
         >
           <ChevronLeft size={15} />
         </button>
-        <span className="text-sm font-semibold text-gray-200">
+        <span className="text-sm font-semibold text-gray-700">
           {MONTHS[month]} {year}
         </span>
         <button
           type="button"
           onMouseDown={e => { e.preventDefault(); nextMonth() }}
-          className="p-1 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-gray-800 transition-all"
+          className="p-1 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all"
         >
           <ChevronRight size={15} />
         </button>
@@ -143,12 +143,12 @@ function CalendarPopup({ value, anchorRef, onSelect, onClose }) {
               onMouseDown={e => { e.preventDefault(); onSelect(str) }}
               className={`h-8 w-full flex items-center justify-center text-xs rounded-lg font-medium transition-all ${
                 isSelected
-                  ? 'bg-amber-500 text-gray-900 font-bold shadow'
+                  ? 'bg-brand-500 text-gray-900 font-bold shadow'
                   : isToday
                   ? 'bg-blue-500/20 text-blue-300 font-semibold'
                   : isWeekend
-                  ? 'text-gray-600 hover:bg-gray-800 hover:text-gray-300'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-gray-100'
+                  ? 'text-gray-600 hover:bg-gray-100 hover:text-gray-600'
+                  : 'text-gray-400 hover:bg-gray-100 hover:text-gray-900'
               }`}
             >
               {day}
@@ -158,11 +158,11 @@ function CalendarPopup({ value, anchorRef, onSelect, onClose }) {
       </div>
 
       {/* Footer actions */}
-      <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-gray-800">
+      <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-gray-100">
         <button
           type="button"
           onMouseDown={e => { e.preventDefault(); onSelect(todayStr) }}
-          className="text-xs text-amber-400 hover:text-amber-300 transition-colors font-medium"
+          className="text-xs text-brand-400 hover:text-brand-300 transition-colors font-medium"
         >
           Hoje
         </button>
@@ -205,18 +205,18 @@ export default function DatePicker({ value, onChange, placeholder = 'Selecionar 
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(v => !v)}
-        className={`w-full flex items-center gap-2 bg-gray-900 border rounded-lg px-3 py-2 text-sm text-left transition-all ${
-          open ? 'border-amber-500/50' : 'border-gray-700 hover:border-gray-600'
+        className={`w-full flex items-center gap-2 bg-white border rounded-lg px-3 py-2 text-sm text-left transition-all ${
+          open ? 'border-brand-500/50' : 'border-gray-200 hover:border-gray-300'
         }`}
       >
-        <Calendar size={14} className={value ? 'text-amber-400 flex-shrink-0' : 'text-gray-600 flex-shrink-0'} />
-        <span className={`flex-1 truncate ${value ? 'text-gray-300' : 'text-gray-600'}`}>
+        <Calendar size={14} className={value ? 'text-brand-400 flex-shrink-0' : 'text-gray-600 flex-shrink-0'} />
+        <span className={`flex-1 truncate ${value ? 'text-gray-600' : 'text-gray-600'}`}>
           {value ? formatDisplay(value) : placeholder}
         </span>
         {value && (
           <span
             onClick={clearDate}
-            className="flex-shrink-0 text-gray-600 hover:text-gray-300 transition-colors"
+            className="flex-shrink-0 text-gray-600 hover:text-gray-600 transition-colors"
           >
             <X size={13} />
           </span>

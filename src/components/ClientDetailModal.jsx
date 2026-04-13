@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   X, User, Clock, FileText, AlertTriangle,
   Plus, BarChart3, Users, Briefcase,
-  History, Pencil, Check, ChevronDown, ChevronUp, Repeat, Info,
+  History, Pencil, Check, ChevronDown, ChevronUp, Repeat, Info, CheckCircle2, Copy,
 } from 'lucide-react'
 import { useTasks } from '../context/TasksContext'
 import { useUsers } from '../context/UsersContext'
@@ -15,6 +15,29 @@ import LevelBadge from './LevelBadge'
 import RichTextEditor from './RichTextEditor'
 import TaskItem, { TemplateCard } from './TaskItem'
 import DatePicker from './DatePicker'
+
+// ── Copy CNPJ (só dígitos) ─────────────────────────────────────────────────
+function CopyCnpjButton({ cnpj }) {
+  const [copied, setCopied] = useState(false)
+  function handleCopy(e) {
+    e.stopPropagation()
+    const digits = (cnpj ?? '').replace(/\D/g, '')
+    navigator.clipboard.writeText(digits).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+  return (
+    <button
+      onClick={handleCopy}
+      title="Copiar CNPJ (só números)"
+      className="flex items-center justify-center rounded transition-colors"
+      style={{ color: copied ? '#10B981' : '#9CA3AF', padding: '1px 3px' }}
+    >
+      {copied ? <Check size={11} /> : <Copy size={11} />}
+    </button>
+  )
+}
 
 // ── Status labels & colors ─────────────────────────────────────────────────
 
@@ -35,7 +58,7 @@ const FISCAL_COLOR = {
   sem_pendencia:      'text-emerald-400 bg-emerald-500/15 border-emerald-500/30',
 }
 const CX_LABEL = { cliente_novo: 'Cliente Novo', promotor: 'Promotor', neutro: 'Neutro', risco_churn: 'Risco Churn', detrator: 'Detrator' }
-const CX_COLOR = { cliente_novo: 'text-amber-400 bg-amber-500/15 border-amber-500/30', promotor: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30', neutro: 'text-blue-400 bg-blue-500/15 border-blue-500/30', risco_churn: 'text-orange-400 bg-orange-500/15 border-orange-500/30', detrator: 'text-red-400 bg-red-500/15 border-red-500/30' }
+const CX_COLOR = { cliente_novo: 'text-brand-400 bg-brand-500/15 border-brand-500/30', promotor: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30', neutro: 'text-blue-400 bg-blue-500/15 border-blue-500/30', risco_churn: 'text-orange-400 bg-orange-500/15 border-orange-500/30', detrator: 'text-red-400 bg-red-500/15 border-red-500/30' }
 
 const TAX_COLOR = {
   INSS:        'bg-red-500/20 text-red-300 border-red-500/30',
@@ -70,8 +93,8 @@ function TabBtn({ active, onClick, children }) {
       onClick={onClick}
       className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
         active
-          ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-          : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800'
+          ? 'bg-brand-500/15 text-brand-300 border border-brand-500/30'
+          : 'text-gray-500 hover:text-gray-600 hover:bg-gray-100'
       }`}
     >
       {children}
@@ -91,7 +114,7 @@ function OverviewTab({ client }) {
             { icon: BarChart3, label: 'Fiscal', badge: FISCAL_LABEL[client.fiscalStatus], color: FISCAL_COLOR[client.fiscalStatus] },
             { icon: Users,     label: 'CX',     badge: CX_LABEL[client.cxStatus],         color: CX_COLOR[client.cxStatus] },
           ].map(({ icon: Icon, label, badge, color }) => (
-            <div key={label} className="bg-gray-800/60 rounded-xl p-3 border border-gray-700/50">
+            <div key={label} className="bg-gray-100/60 rounded-xl p-3 border border-gray-200/50">
               <div className="flex items-center gap-1.5 mb-2">
                 <Icon size={13} className="text-gray-500" />
                 <span className="text-xs text-gray-500">{label}</span>
@@ -114,9 +137,9 @@ function OverviewTab({ client }) {
   )
 }
 
-function InfoCard({ icon: Icon, label, value, valueClass = 'text-gray-200' }) {
+function InfoCard({ icon: Icon, label, value, valueClass = 'text-gray-700' }) {
   return (
-    <div className="bg-gray-800/60 rounded-xl p-3 border border-gray-700/50">
+    <div className="bg-gray-100/60 rounded-xl p-3 border border-gray-200/50">
       <div className="flex items-center gap-1.5 mb-1">
         <Icon size={12} className="text-gray-500" />
         <span className="text-xs text-gray-500">{label}</span>
@@ -132,16 +155,16 @@ function ScoreTooltip() {
   const [visible, setVisible] = useState(false)
   return (
     <span className="relative" onMouseEnter={() => setVisible(true)} onMouseLeave={() => setVisible(false)}>
-      <Info size={12} className="cursor-help text-gray-600 hover:text-amber-400 transition-colors" />
+      <Info size={12} className="cursor-help text-gray-600 hover:text-brand-400 transition-colors" />
       {visible && (
-        <div className="absolute left-5 top-0 z-50 w-64 bg-gray-800 border border-gray-600 rounded-xl p-3 shadow-xl text-left">
-          <p className="text-xs font-semibold text-gray-200 mb-1.5">Como é calculado</p>
+        <div className="absolute left-5 top-0 z-50 w-64 bg-gray-100 border border-gray-600 rounded-xl p-3 shadow-xl text-left">
+          <p className="text-xs font-semibold text-gray-700 mb-1.5">Como é calculado</p>
           <ul className="space-y-1 text-xs text-gray-400">
-            <li>• Cada item fiscal tem um <span className="text-gray-200">peso</span> (padrão: 10).</li>
+            <li>• Cada item fiscal tem um <span className="text-gray-700">peso</span> (padrão: 10).</li>
             <li>• Score = pesos dos itens <span className="text-emerald-400">✓ Regular</span> ÷ peso total × 100.</li>
             <li>• Itens <span className="text-red-400">✗ Pendente</span> ou sem marcação <span className="text-gray-500">não somam</span>.</li>
           </ul>
-          <p className="text-[10px] text-gray-600 mt-2 border-t border-gray-700 pt-2">Ex: 4 itens × peso 10 → 3 regulares = score 75</p>
+          <p className="text-[10px] text-gray-600 mt-2 border-t border-gray-200 pt-2">Ex: 4 itens × peso 10 → 3 regulares = score 75</p>
         </div>
       )}
     </span>
@@ -193,6 +216,23 @@ function AnalysisTab({ client, selectedMonth }) {
     setDraft({ ...savedChecks })
   }
 
+  async function handleMarkAllOk() {
+    setSaving(true)
+    try {
+      const allOk = Object.fromEntries(applicableItems.map(i => [i.id, 'ok']))
+      setDraft(allOk)
+      await upsertRecord(client.id, activeMonth, {
+        status:       'sem_pendencia',
+        checks:       allOk,
+        pendingTaxes: record?.pendingTaxes ?? client.pendingTaxes ?? [],
+        note:         record?.note ?? '',
+      })
+      updateClient(client.id, { scoreFiscal: 100, fiscalStatus: 'sem_pendencia' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleSave() {
     setSaving(true)
     try {
@@ -215,12 +255,12 @@ function AnalysisTab({ client, selectedMonth }) {
     <div className="space-y-5">
 
       {/* Resumo da empresa */}
-      <div className="bg-gray-800/60 rounded-xl p-3 border border-gray-700/50">
+      <div className="bg-gray-100/60 rounded-xl p-3 border border-gray-200/50">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2.5">Perfil da Empresa</p>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500 w-20 flex-shrink-0">Regime</span>
-            <span className="text-xs font-medium text-gray-200 truncate">{client.regime || '—'}</span>
+            <span className="text-xs font-medium text-gray-700 truncate">{client.regime || '—'}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500 w-20 flex-shrink-0">Tipo</span>
@@ -232,21 +272,43 @@ function AnalysisTab({ client, selectedMonth }) {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500 w-20 flex-shrink-0">Empregados</span>
-            <span className={`text-xs font-medium ${client.hasEmployees ? 'text-amber-300' : 'text-gray-500'}`}>
+            <span className={`text-xs font-medium ${client.hasEmployees ? 'text-brand-300' : 'text-gray-500'}`}>
               {client.hasEmployees ? 'Sim' : 'Não'}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500 w-20 flex-shrink-0">Pró-labore</span>
-            <span className={`text-xs font-medium ${client.hasProLabore ? 'text-amber-300' : 'text-gray-500'}`}>
+            <span className={`text-xs font-medium ${client.hasProLabore ? 'text-brand-300' : 'text-gray-500'}`}>
               {client.hasProLabore ? 'Sim' : 'Não'}
             </span>
           </div>
         </div>
+
+        {/* Em exclusão do Simples — só aparece para Simples Nacional */}
+        {client.regime === 'Simples Nacional' && (
+          <div className="mt-3 pt-3 border-t border-gray-200/40">
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={!!client.emExclusaoSimples}
+                onChange={() => updateClient(client.id, { emExclusaoSimples: !client.emExclusaoSimples })}
+                className="w-4 h-4 rounded accent-red-500 cursor-pointer"
+              />
+              <span className={`text-xs font-semibold ${client.emExclusaoSimples ? 'text-red-400' : 'text-gray-500'}`}>
+                Em exclusão do Simples
+              </span>
+              {client.emExclusaoSimples && (
+                <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                  Ativo
+                </span>
+              )}
+            </label>
+          </div>
+        )}
       </div>
 
       {/* Score Fiscal em destaque */}
-      <div className="bg-gray-800/60 rounded-xl p-4 border border-gray-700/50">
+      <div className="bg-gray-100/60 rounded-xl p-4 border border-gray-200/50">
         <div className="flex items-center justify-between mb-3">
           <div>
             <div className="flex items-center gap-1.5">
@@ -271,6 +333,18 @@ function AnalysisTab({ client, selectedMonth }) {
         )}
       </div>
 
+      {/* Tudo certo rápido */}
+      {applicableItems.length > 0 && displayScore !== 100 && (
+        <button
+          onClick={handleMarkAllOk}
+          disabled={saving}
+          className="w-full py-3 rounded-xl text-sm font-bold bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-gray-900 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+        >
+          <CheckCircle2 size={16} />
+          {saving ? 'Salvando…' : 'CLIQUE AQUI SE ESTIVER TUDO CERTO'}
+        </button>
+      )}
+
       {/* Checklist */}
       {applicableItems.length > 0 && (
         <div>
@@ -291,7 +365,7 @@ function AnalysisTab({ client, selectedMonth }) {
                   className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${
                     state === 'ok'      ? 'bg-emerald-500/10 border-emerald-500/30' :
                     state === 'pendente'? 'bg-red-500/10 border-red-500/30' :
-                                         'bg-gray-800/60 border-orange-500/30'
+                                         'bg-gray-100/60 border-orange-500/30'
                   }`}
                 >
                   <span className={`flex-1 text-sm font-medium ${
@@ -307,7 +381,7 @@ function AnalysisTab({ client, selectedMonth }) {
                     onClick={() => setCheck(item.id, 'ok')}
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
                       state === 'ok'
-                        ? 'bg-emerald-500 border-emerald-500 text-white'
+                        ? 'bg-emerald-500 border-emerald-500 text-gray-900'
                         : 'bg-gray-700/50 border-gray-600 text-gray-500 hover:border-emerald-500/60 hover:text-emerald-400'
                     }`}
                   >
@@ -318,7 +392,7 @@ function AnalysisTab({ client, selectedMonth }) {
                     onClick={() => setCheck(item.id, 'pendente')}
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
                       state === 'pendente'
-                        ? 'bg-red-500 border-red-500 text-white'
+                        ? 'bg-red-500 border-red-500 text-gray-900'
                         : 'bg-gray-700/50 border-gray-600 text-gray-500 hover:border-red-500/60 hover:text-red-400'
                     }`}
                   >
@@ -338,7 +412,7 @@ function AnalysisTab({ client, selectedMonth }) {
                 disabled={!canSave || saving}
                 className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
                   canSave && !saving
-                    ? 'bg-amber-500 hover:bg-amber-400 text-gray-900'
+                    ? 'bg-brand-500 hover:bg-brand-400 text-gray-900'
                     : 'bg-gray-700 text-gray-500 cursor-not-allowed'
                 }`}
               >
@@ -348,7 +422,7 @@ function AnalysisTab({ client, selectedMonth }) {
                 type="button"
                 onClick={handleCancel}
                 disabled={saving}
-                className="px-4 py-2 rounded-xl border border-gray-700 text-gray-400 hover:text-gray-200 text-sm transition-all"
+                className="px-4 py-2 rounded-xl border border-gray-200 text-gray-400 hover:text-gray-700 text-sm transition-all"
               >
                 Cancelar
               </button>
@@ -363,9 +437,9 @@ function AnalysisTab({ client, selectedMonth }) {
           <FileText size={14} className="text-gray-400" />
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Observações internas</p>
         </div>
-        <div className="bg-gray-800/60 rounded-xl p-4 border border-gray-700/50 min-h-[80px]">
+        <div className="bg-gray-100/60 rounded-xl p-4 border border-gray-200/50 min-h-[80px]">
           {client.notes
-            ? <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{client.notes}</p>
+            ? <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{client.notes}</p>
             : <p className="text-sm text-gray-600 italic">Nenhuma observação registrada.</p>}
         </div>
       </div>
@@ -435,18 +509,18 @@ function TasksTab({ client }) {
       {!showForm ? (
         <button
           onClick={() => setShowForm(true)}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-gray-600 text-gray-500 hover:text-amber-400 hover:border-amber-500/40 hover:bg-amber-500/5 transition-all text-sm"
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-gray-600 text-gray-500 hover:text-brand-400 hover:border-brand-500/40 hover:bg-brand-500/5 transition-all text-sm"
         >
           <Plus size={15} /> Nova tarefa
         </button>
       ) : (
-        <form onSubmit={handleAdd} className="bg-gray-800/80 rounded-xl p-4 border border-amber-500/30 space-y-3">
+        <form onSubmit={handleAdd} className="bg-gray-100/80 rounded-xl p-4 border border-brand-500/30 space-y-3">
           <input
             autoFocus
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="Título da tarefa *"
-            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-amber-500/50"
+            className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-brand-500/50"
           />
           <RichTextEditor value={desc} onChange={setDesc} placeholder="Descrição com formatação (opcional)" minHeight={70} />
           <div className="grid grid-cols-2 gap-2">
@@ -459,12 +533,12 @@ function TasksTab({ client }) {
               type="time"
               value={time}
               onChange={e => setTime(e.target.value)}
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-amber-500/50"
+              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-brand-500/50"
             />
             <select
               value={priority}
               onChange={e => setPriority(e.target.value)}
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-amber-500/50"
+              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-brand-500/50"
             >
               <option value="nenhuma">Sem prioridade</option>
               <option value="baixa">Baixa</option>
@@ -475,7 +549,7 @@ function TasksTab({ client }) {
               <select
                 value={assigned}
                 onChange={e => setAssigned(e.target.value)}
-                className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-amber-500/50"
+                className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-brand-500/50"
               >
                 <option value="">Responsável</option>
                 {users.map(u => <option key={u.id} value={u.id}>{u.name.split(' ')[0]}</option>)}
@@ -507,10 +581,10 @@ function TasksTab({ client }) {
             <p className="text-xs text-red-400 bg-red-950/40 border border-red-500/30 rounded-lg px-3 py-2">{saveError}</p>
           )}
           <div className="flex gap-2">
-            <button type="submit" disabled={saving} className="flex-1 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-gray-900 text-sm font-semibold transition-all">
+            <button type="submit" disabled={saving} className="flex-1 py-2 rounded-lg bg-brand-500 hover:bg-brand-400 disabled:opacity-60 text-gray-900 text-sm font-semibold transition-all">
               {saving ? 'Salvando…' : 'Adicionar'}
             </button>
-            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg border border-gray-700 text-gray-400 hover:text-gray-200 text-sm transition-all">
+            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-700 text-sm transition-all">
               Cancelar
             </button>
           </div>
@@ -554,7 +628,7 @@ function TasksTab({ client }) {
 
       {/* Recurring templates for this client */}
       {templateTasks.length > 0 && (
-        <div className={regularTasks.length > 0 ? 'pt-3 border-t border-gray-800' : ''}>
+        <div className={regularTasks.length > 0 ? 'pt-3 border-t border-gray-100' : ''}>
           <div className="flex items-center gap-2 mb-2">
             <Repeat size={12} className="text-purple-400" />
             <span className="text-xs font-medium text-gray-600">Recorrentes</span>
@@ -608,7 +682,7 @@ function CheckChip({ label, state, onClick }) {
   const styles = {
     ok:       'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
     pendente: 'bg-red-500/15 text-red-300 border-red-500/40',
-    null:     'bg-gray-700/40 text-gray-600 border-gray-700/50',
+    null:     'bg-gray-700/40 text-gray-600 border-gray-200/50',
   }
   const icons = { ok: '✓', pendente: '✗', null: '—' }
   const s = state ?? 'null'
@@ -646,7 +720,7 @@ function FiscalScoreBar({ score }) {
 }
 
 function FiscalHistoryTab({ client }) {
-  const { getClientHistory, upsertRecord } = useFiscalRecords()
+  const { getClientHistory, getStatusHistory, upsertRecord } = useFiscalRecords()
   const { fiscalItems }                    = useFiscalItemsCtx()
   const { regimeItems, conditionItems, tipoItems } = useFiscalConfig()
   const applicableItems = getApplicableItems(client, fiscalItems, regimeItems, conditionItems, tipoItems)
@@ -654,9 +728,14 @@ function FiscalHistoryTab({ client }) {
   const history         = getClientHistory(client.id)
   const hasCurrentMonth = history.some(h => h.month === currentMonth)
 
-  const [editingNote, setEditingNote] = useState(null)
-  const [noteValue,   setNoteValue]   = useState('')
-  const [expanded,    setExpanded]    = useState({})
+  const [editingNote,   setEditingNote]   = useState(null)
+  const [noteValue,     setNoteValue]     = useState('')
+  const [expanded,      setExpanded]      = useState({})
+  const [statusHistory, setStatusHistory] = useState([])
+
+  useEffect(() => {
+    getStatusHistory(client.id).then(setStatusHistory)
+  }, [client.id, getStatusHistory])
 
   async function registerCurrentMonth() {
     const existing = history.find(h => h.month === currentMonth)
@@ -699,7 +778,7 @@ function FiscalHistoryTab({ client }) {
       <div className="space-y-4">
         <button
           onClick={registerCurrentMonth}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-amber-500/40 text-amber-400 hover:bg-amber-500/5 transition-all text-sm font-medium"
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-brand-500/40 text-brand-400 hover:bg-brand-500/5 transition-all text-sm font-medium"
         >
           <History size={15} /> Registrar mês atual
         </button>
@@ -717,7 +796,7 @@ function FiscalHistoryTab({ client }) {
       {!hasCurrentMonth && (
         <button
           onClick={registerCurrentMonth}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-amber-500/40 text-amber-400 hover:bg-amber-500/5 transition-all text-sm font-medium"
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-brand-500/40 text-brand-400 hover:bg-brand-500/5 transition-all text-sm font-medium"
         >
           <History size={15} /> Registrar mês atual
         </button>
@@ -739,11 +818,11 @@ function FiscalHistoryTab({ client }) {
               <div key={entry.month} className="relative pl-7">
                 {/* timeline dot */}
                 <div className={`absolute left-0 top-3.5 w-[9px] h-[9px] rounded-full border-2 ${
-                  isCurrentMonth ? 'bg-amber-400 border-amber-400' : 'bg-gray-700 border-gray-600'
+                  isCurrentMonth ? 'bg-brand-400 border-brand-400' : 'bg-gray-700 border-gray-600'
                 }`} />
 
                 <div className={`rounded-xl border p-3 transition-all ${
-                  isCurrentMonth ? 'border-amber-500/30 bg-amber-950/10' : 'border-gray-700/50 bg-gray-800/40'
+                  isCurrentMonth ? 'border-brand-500/30 bg-brand-950/10' : 'border-gray-200/50 bg-gray-100'
                 }`}>
                   {/* Header row */}
                   <div
@@ -751,9 +830,9 @@ function FiscalHistoryTab({ client }) {
                     onClick={() => toggleExpand(entry.month)}
                   >
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
-                      <span className={`text-xs font-semibold ${isCurrentMonth ? 'text-amber-300' : 'text-gray-400'}`}>
+                      <span className={`text-xs font-semibold ${isCurrentMonth ? 'text-brand-300' : 'text-gray-400'}`}>
                         {formatMonth(entry.month)}
-                        {isCurrentMonth && <span className="ml-1.5 text-[10px] text-amber-500/70 font-normal">• atual</span>}
+                        {isCurrentMonth && <span className="ml-1.5 text-[10px] text-brand-500/70 font-normal">• atual</span>}
                       </span>
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${FISCAL_COLOR[entry.status] ?? 'text-gray-400 bg-gray-700/40 border-gray-600'}`}>
                         {FISCAL_LABEL[entry.status] ?? entry.status}
@@ -815,11 +894,11 @@ function FiscalHistoryTab({ client }) {
                               onChange={e => setNoteValue(e.target.value)}
                               rows={2}
                               placeholder="Observação sobre este mês..."
-                              className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:border-amber-500/50 resize-none"
+                              className="flex-1 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:border-brand-500/50 resize-none"
                             />
                             <button
                               onClick={() => saveNote(entry)}
-                              className="flex-shrink-0 p-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-gray-900 transition-all"
+                              className="flex-shrink-0 p-1.5 rounded-lg bg-brand-500 hover:bg-brand-400 text-gray-900 transition-all"
                             >
                               <Check size={12} />
                             </button>
@@ -836,6 +915,33 @@ function FiscalHistoryTab({ client }) {
                           </div>
                         )}
                       </div>
+
+                      {/* Status change log for this month */}
+                      {(() => {
+                        const monthChanges = statusHistory.filter(h => h.month === entry.month)
+                        if (!monthChanges.length) return null
+                        return (
+                          <div>
+                            <p className="text-[10px] text-gray-600 mb-1.5 font-medium uppercase tracking-wide">Movimentações</p>
+                            <div className="space-y-1">
+                              {monthChanges.map(h => (
+                                <div key={h.id} className="flex items-center gap-1.5 text-[10px]" style={{ color: '#6B7280' }}>
+                                  <span className="font-medium" style={{ color: '#9CA3AF' }}>
+                                    {new Date(h.changedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                  <span>→</span>
+                                  <span className={`font-semibold ${FISCAL_COLOR[h.toStatus]?.split(' ')[0] ?? 'text-gray-400'}`}>
+                                    {FISCAL_LABEL[h.toStatus] ?? h.toStatus}
+                                  </span>
+                                  {h.changedByName && (
+                                    <span style={{ color: '#9CA3AF' }}>por <span className="font-medium">{h.changedByName}</span></span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </div>
                   )}
                 </div>
@@ -869,18 +975,21 @@ export default function ClientDetailModal({ client, selectedMonth, onClose }) {
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-gray-900 rounded-2xl border border-gray-700 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="px-6 pt-5 pb-4 border-b border-gray-800 flex-shrink-0">
+        <div className="px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                 <LevelBadge level={liveClient.level} />
-                <span className="text-xs text-gray-500">{liveClient.cnpj}</span>
+                <span className="flex items-center gap-1">
+                  <span className="text-xs text-gray-500">{liveClient.cnpj}</span>
+                  <CopyCnpjButton cnpj={liveClient.cnpj} />
+                </span>
               </div>
-              <h2 className="text-lg font-bold text-white leading-tight">{liveClient.name}</h2>
+              <h2 className="text-lg font-bold text-gray-900 leading-tight">{liveClient.name}</h2>
             </div>
-            <button onClick={onClose} className="flex-shrink-0 text-gray-500 hover:text-gray-200 transition-colors p-1 rounded-lg hover:bg-gray-800">
+            <button onClick={onClose} className="flex-shrink-0 text-gray-500 hover:text-gray-700 transition-colors p-1 rounded-lg hover:bg-gray-100">
               <X size={20} />
             </button>
           </div>
@@ -896,7 +1005,7 @@ export default function ClientDetailModal({ client, selectedMonth, onClose }) {
             </TabBtn>
             <TabBtn active={tab === 'tasks'}    onClick={() => setTab('tasks')}>
               Tarefas{pendingCount > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500 text-gray-900 text-[10px] font-bold">
+                <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-500 text-gray-900 text-[10px] font-bold">
                   {pendingCount}
                 </span>
               )}

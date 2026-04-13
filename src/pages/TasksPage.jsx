@@ -4,6 +4,7 @@ import DatePicker from '../components/DatePicker'
 import { useTasks } from '../context/TasksContext'
 import { useClients } from '../context/ClientsContext'
 import { useUsers } from '../context/UsersContext'
+import { usePermissions } from '../hooks/usePermissions'
 import RichTextEditor from '../components/RichTextEditor'
 import TaskItem, { isOverdue, TemplateCard } from '../components/TaskItem'
 import TaskKanbanView from '../components/TaskKanbanView'
@@ -12,6 +13,10 @@ export default function TasksPage({ onOpenClient }) {
   const { tasks, addTask, updateTask, deleteTask, error: tasksError } = useTasks()
   const { clients } = useClients()
   const { users }   = useUsers()
+  const { can }     = usePermissions()
+  const canCreate = can('tasks', 'create')
+  const canEdit   = can('tasks', 'edit')
+  const canDelete = can('tasks', 'delete')
 
   const [filterStatus,   setFilterStatus]   = useState('todas')
   const [filterPriority, setFilterPriority] = useState('todas')
@@ -101,37 +106,39 @@ export default function TasksPage({ onOpenClient }) {
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <CheckSquare size={20} className="text-amber-400" />
-            <h1 className="text-xl font-bold text-white">Tarefas</h1>
+            <CheckSquare size={20} className="text-brand-400" />
+            <h1 className="text-xl font-bold text-gray-900">Tarefas</h1>
           </div>
           <p className="text-sm text-gray-500">Gerencie todas as tarefas da equipe.</p>
         </div>
         <div className="flex items-center gap-2">
           {/* View toggle */}
-          <div className="flex gap-1 bg-gray-800 rounded-lg p-1 border border-gray-700">
+          <div className="flex gap-1 bg-gray-100 rounded-lg p-1 border border-gray-200">
             <button
               onClick={() => setViewMode('list')}
               title="Visualização em lista"
-              className={`p-1.5 rounded transition-all ${viewMode === 'list' ? 'bg-amber-500/20 text-amber-300' : 'text-gray-500 hover:text-gray-300'}`}
+              className={`p-1.5 rounded transition-all ${viewMode === 'list' ? 'bg-brand-500/20 text-brand-300' : 'text-gray-500 hover:text-gray-600'}`}
             >
               <List size={15} />
             </button>
             <button
               onClick={() => setViewMode('kanban')}
               title="Visualização Kanban"
-              className={`p-1.5 rounded transition-all ${viewMode === 'kanban' ? 'bg-amber-500/20 text-amber-300' : 'text-gray-500 hover:text-gray-300'}`}
+              className={`p-1.5 rounded transition-all ${viewMode === 'kanban' ? 'bg-brand-500/20 text-brand-300' : 'text-gray-500 hover:text-gray-600'}`}
             >
               <LayoutGrid size={15} />
             </button>
           </div>
 
-          <button
-            onClick={() => setShowForm(v => !v)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-gray-900 text-sm font-semibold transition-all flex-shrink-0"
-          >
-            <Plus size={16} />
-            Nova tarefa
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => setShowForm(v => !v)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-gray-900 text-sm font-semibold transition-all flex-shrink-0"
+            >
+              <Plus size={16} />
+              Nova tarefa
+            </button>
+          )}
         </div>
       </div>
 
@@ -148,35 +155,35 @@ export default function TasksPage({ onOpenClient }) {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-5">
-        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-          <div className="flex items-center gap-2 mb-1">
-            <Clock size={14} className="text-gray-500" />
-            <span className="text-xs text-gray-500">Pendentes</span>
+        <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock size={14} className="text-gray-400" />
+            <span className="text-xs font-medium text-gray-500">Pendentes</span>
           </div>
-          <p className="text-2xl font-bold text-gray-200">{totalPending}</p>
+          <p className="text-2xl font-bold text-gray-900">{totalPending}</p>
         </div>
-        <div className="bg-emerald-950/30 rounded-xl p-4 border border-emerald-500/20">
-          <div className="flex items-center gap-2 mb-1">
-            <CheckCircle2 size={14} className="text-emerald-400" />
-            <span className="text-xs text-gray-500">Concluídas</span>
+        <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle2 size={14} className="text-emerald-600" />
+            <span className="text-xs font-medium text-emerald-700">Concluídas</span>
           </div>
-          <p className="text-2xl font-bold text-emerald-400">{totalDone}</p>
+          <p className="text-2xl font-bold text-emerald-700">{totalDone}</p>
         </div>
-        <div className={`rounded-xl p-4 border ${totalOverdue > 0 ? 'bg-red-950/30 border-red-500/20' : 'bg-gray-800 border-gray-700'}`}>
-          <div className="flex items-center gap-2 mb-1">
-            <Flag size={14} className={totalOverdue > 0 ? 'text-red-400' : 'text-gray-500'} />
-            <span className="text-xs text-gray-500">Vencidas</span>
+        <div className={`rounded-xl p-4 border ${totalOverdue > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200 shadow-sm'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Flag size={14} className={totalOverdue > 0 ? 'text-red-600' : 'text-gray-400'} />
+            <span className={`text-xs font-medium ${totalOverdue > 0 ? 'text-red-700' : 'text-gray-500'}`}>Vencidas</span>
           </div>
-          <p className={`text-2xl font-bold ${totalOverdue > 0 ? 'text-red-400' : 'text-gray-600'}`}>{totalOverdue}</p>
+          <p className={`text-2xl font-bold ${totalOverdue > 0 ? 'text-red-700' : 'text-gray-900'}`}>{totalOverdue}</p>
         </div>
       </div>
 
       {/* Add Form */}
       {showForm && (
-        <form onSubmit={handleAdd} className="bg-gray-800/80 rounded-xl p-5 border border-amber-500/30 mb-5 space-y-3">
+        <form onSubmit={handleAdd} className="bg-gray-100/80 rounded-xl p-5 border border-brand-500/30 mb-5 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-gray-300">Nova tarefa</p>
-            <button type="button" onClick={() => setShowForm(false)} className="text-gray-500 hover:text-gray-300">
+            <p className="text-sm font-semibold text-gray-600">Nova tarefa</p>
+            <button type="button" onClick={() => setShowForm(false)} className="text-gray-500 hover:text-gray-600">
               <X size={16} />
             </button>
           </div>
@@ -185,7 +192,7 @@ export default function TasksPage({ onOpenClient }) {
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="Título *"
-            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-amber-500/50"
+            className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-brand-500/50"
           />
           <RichTextEditor value={desc} onChange={setDesc} placeholder="Descrição com formatação (opcional)" minHeight={80} />
           <div className="grid grid-cols-2 gap-2">
@@ -198,12 +205,12 @@ export default function TasksPage({ onOpenClient }) {
               type="time"
               value={time}
               onChange={e => setTime(e.target.value)}
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-amber-500/50"
+              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-brand-500/50"
             />
             <select
               value={priority}
               onChange={e => setPriority(e.target.value)}
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-amber-500/50"
+              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-brand-500/50"
             >
               <option value="nenhuma">Sem prioridade</option>
               <option value="baixa">Baixa</option>
@@ -214,7 +221,7 @@ export default function TasksPage({ onOpenClient }) {
               <select
                 value={assigned}
                 onChange={e => setAssigned(e.target.value)}
-                className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-amber-500/50"
+                className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-brand-500/50"
               >
                 <option value="">Responsável (opcional)</option>
                 {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -223,7 +230,7 @@ export default function TasksPage({ onOpenClient }) {
             <select
               value={clientId}
               onChange={e => setClientId(e.target.value)}
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-amber-500/50"
+              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-brand-500/50"
             >
               <option value="">Cliente (opcional)</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -255,10 +262,10 @@ export default function TasksPage({ onOpenClient }) {
             </p>
           )}
           <div className="flex gap-2">
-            <button type="submit" disabled={saving} className="flex-1 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-gray-900 text-sm font-semibold transition-all">
+            <button type="submit" disabled={saving} className="flex-1 py-2 rounded-lg bg-brand-500 hover:bg-brand-400 disabled:opacity-60 text-gray-900 text-sm font-semibold transition-all">
               {saving ? 'Salvando…' : 'Adicionar tarefa'}
             </button>
-            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg border border-gray-700 text-gray-400 hover:text-gray-200 text-sm transition-all">
+            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-700 text-sm transition-all">
               Cancelar
             </button>
           </div>
@@ -273,26 +280,33 @@ export default function TasksPage({ onOpenClient }) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar tarefa ou cliente…"
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-8 pr-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-amber-500/50"
+            className="w-full bg-gray-100 border border-gray-200 rounded-lg pl-8 pr-3 py-2 text-sm text-gray-600 placeholder-gray-400 focus:outline-none focus:border-brand-500/50"
           />
         </div>
         {/* Status filter only useful in list mode or kanban-by-priority */}
         {(viewMode === 'list' || groupBy === 'priority') && (
-          <div className="flex gap-1 bg-gray-800 rounded-lg p-1 border border-gray-700">
+          <div className="flex gap-1 bg-gray-100 rounded-lg p-1 border border-gray-200">
             {['todas','pendente','concluida'].map(f => (
               <button key={f} onClick={() => setFilterStatus(f)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-all ${filterStatus === f ? 'bg-amber-500/20 text-amber-300' : 'text-gray-500 hover:text-gray-300'}`}>
+                className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                  filterStatus === f
+                    ? 'bg-white text-gray-900 font-semibold shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}>
                 {f === 'todas' ? 'Todas' : f === 'pendente' ? 'Pendente' : 'Concluída'}
               </button>
             ))}
           </div>
         )}
-        {/* Priority filter only useful in list mode or kanban-by-status */}
         {(viewMode === 'list' || groupBy === 'status') && (
-          <div className="flex gap-1 bg-gray-800 rounded-lg p-1 border border-gray-700">
+          <div className="flex gap-1 bg-gray-100 rounded-lg p-1 border border-gray-200">
             {['todas','alta','media','baixa','nenhuma'].map(f => (
               <button key={f} onClick={() => setFilterPriority(f)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-all ${filterPriority === f ? 'bg-amber-500/20 text-amber-300' : 'text-gray-500 hover:text-gray-300'}`}>
+                className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                  filterPriority === f
+                    ? 'bg-white text-gray-900 font-semibold shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}>
                 {f === 'todas' ? 'Todas' : f === 'alta' ? 'Alta' : f === 'media' ? 'Média' : f === 'baixa' ? 'Baixa' : 'Nenhuma'}
               </button>
             ))}
@@ -302,7 +316,7 @@ export default function TasksPage({ onOpenClient }) {
 
       {/* List view */}
       {viewMode === 'list' && (
-        <div className="flex-1 overflow-y-auto scrollbar-thin space-y-2 pb-4">
+        <div className="flex-1 overflow-y-auto scrollbar-thin space-y-2.5 pb-4">
           {filtered.length === 0 && filteredTemplates.length === 0 ? (
             <div className="text-center py-16 text-gray-600">
               <CheckSquare size={32} className="mx-auto mb-3 opacity-20" />
@@ -320,11 +334,13 @@ export default function TasksPage({ onOpenClient }) {
                   onUpdate={updateTask}
                   onDelete={deleteTask}
                   onOpenClient={onOpenClient}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
                 />
               ))}
 
               {filteredTemplates.length > 0 && (
-                <div className={filtered.length > 0 ? 'mt-4 pt-4 border-t border-gray-800' : ''}>
+                <div className={filtered.length > 0 ? 'mt-4 pt-4 border-t border-gray-100' : ''}>
                   <div className="flex items-center gap-2 mb-2">
                     <Repeat size={12} className="text-purple-400" />
                     <span className="text-xs font-medium text-gray-600">Tarefas Recorrentes</span>
@@ -338,6 +354,8 @@ export default function TasksPage({ onOpenClient }) {
                         clients={clients}
                         onUpdate={updateTask}
                         onDelete={deleteTask}
+                        canEdit={canEdit}
+                        canDelete={canDelete}
                       />
                     ))}
                   </div>

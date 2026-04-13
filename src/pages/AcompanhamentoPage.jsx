@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { DragDropContext } from '@hello-pangea/dnd'
 import { CalendarDays, AlertTriangle, ChevronLeft, ChevronRight, Settings2 } from 'lucide-react'
 import { useMonthlyKanban } from '../hooks/useKanban'
 import { useKanbanSettings } from '../hooks/useKanbanSettings'
-import KanbanColumn from '../components/KanbanColumn'
+import { useSettings } from '../context/SettingsContext'
+import KanbanColumn, { KanbanColumnHeader } from '../components/KanbanColumn'
 import KanbanSettingsModal from '../components/KanbanSettingsModal'
 import MonthlyCard from '../components/MonthlyCard'
 import FilterBar from '../components/FilterBar'
@@ -13,7 +14,7 @@ const DEFAULT_COLUMNS = [
     id: 'pendente',
     label: 'Pendente',
     bg: 'bg-gray-700/20', border: 'border-gray-600/40', text: 'text-gray-400',
-    dot: 'bg-gray-500', headerBg: 'bg-gray-800/60',
+    dot: 'bg-gray-500', headerBg: 'bg-gray-100/60',
     description: 'Aguardando documentos do cliente',
   },
   {
@@ -56,6 +57,14 @@ export default function AcompanhamentoPage({ onOpenClient }) {
 
   const totalVisible = columns.reduce((sum, col) => sum + (kanbanColumns[col.id]?.clients.length ?? 0), 0)
 
+  const { settings } = useSettings()
+  const stickyHeaders   = settings.stickyKanbanHeaders
+  const boardScrollRef  = useRef()
+  const headerScrollRef = useRef()
+  function onBoardScroll(e) {
+    if (headerScrollRef.current) headerScrollRef.current.scrollLeft = e.target.scrollLeft
+  }
+
   function prevMonth() {
     if (month === 0) { setMonth(11); setYear(y => y - 1) }
     else setMonth(m => m - 1)
@@ -83,8 +92,8 @@ export default function AcompanhamentoPage({ onOpenClient }) {
       <div className="flex items-start justify-between gap-4 mb-5">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <CalendarDays size={20} className="text-amber-400" />
-            <h1 className="text-xl font-bold text-white">Acompanhamento Mensal</h1>
+            <CalendarDays size={20} className="text-brand-400" />
+            <h1 className="text-xl font-bold text-gray-900">Acompanhamento Mensal</h1>
           </div>
           <p className="text-sm text-gray-500">
             Controle de obrigações e entregas por competência.
@@ -93,20 +102,20 @@ export default function AcompanhamentoPage({ onOpenClient }) {
 
         <div className="flex items-center gap-2">
           {/* Month Selector */}
-          <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2">
-            <button onClick={prevMonth} className="text-gray-500 hover:text-gray-200 transition-colors">
+          <div className="flex items-center gap-2 bg-gray-100 border border-gray-200 rounded-xl px-3 py-2">
+            <button onClick={prevMonth} className="text-gray-500 hover:text-gray-700 transition-colors">
               <ChevronLeft size={16} />
             </button>
-            <span className="text-sm font-semibold text-gray-200 w-36 text-center">
+            <span className="text-sm font-semibold text-gray-700 w-36 text-center">
               {MONTHS[month]} de {year}
             </span>
-            <button onClick={nextMonth} className="text-gray-500 hover:text-gray-200 transition-colors">
+            <button onClick={nextMonth} className="text-gray-500 hover:text-gray-700 transition-colors">
               <ChevronRight size={16} />
             </button>
           </div>
           <button
             onClick={() => setShowSettings(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600 transition-all text-sm"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 text-gray-400 hover:text-gray-700 hover:border-gray-300 transition-all text-sm"
             title="Configurar colunas"
           >
             <Settings2 size={15} />
@@ -151,18 +160,30 @@ export default function AcompanhamentoPage({ onOpenClient }) {
       </div>
 
       {/* Kanban */}
+      {stickyHeaders && (
+        <div ref={headerScrollRef} className="sticky top-0 z-20 overflow-hidden bg-gray-50 pb-3">
+          <div className="flex gap-4">
+            {columns.map(col => {
+              const kanbanCol = kanbanColumns[col.id] ?? { id: col.id, label: col.label, clients: [] }
+              return <KanbanColumnHeader key={col.id} column={{ ...kanbanCol, label: col.label, description: col.description }} />
+            })}
+          </div>
+        </div>
+      )}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin flex-1">
-          {columns.map(col => {
-            const kanbanCol = kanbanColumns[col.id] ?? { id: col.id, label: col.label, clients: [] }
-            return (
-              <KanbanColumn key={col.id} column={{ ...kanbanCol, label: col.label, description: col.description }} colorConfig={col}>
-                {kanbanCol.clients.map((client, index) => (
-                  <MonthlyCard key={client.id} client={client} index={index} onOpen={onOpenClient} />
-                ))}
-              </KanbanColumn>
-            )
-          })}
+        <div ref={boardScrollRef} className="overflow-x-auto scrollbar-thin pb-4 flex-1" onScroll={onBoardScroll}>
+          <div className="flex gap-4">
+            {columns.map(col => {
+              const kanbanCol = kanbanColumns[col.id] ?? { id: col.id, label: col.label, clients: [] }
+              return (
+                <KanbanColumn key={col.id} showHeader={!stickyHeaders} column={{ ...kanbanCol, label: col.label, description: col.description }} colorConfig={col}>
+                  {kanbanCol.clients.map((client, index) => (
+                    <MonthlyCard key={client.id} client={client} index={index} onOpen={onOpenClient} />
+                  ))}
+                </KanbanColumn>
+              )
+            })}
+          </div>
         </div>
       </DragDropContext>
 

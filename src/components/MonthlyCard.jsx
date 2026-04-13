@@ -1,10 +1,7 @@
 import { Draggable } from '@hello-pangea/dnd'
-import { User, TrendingUp, FileText } from 'lucide-react'
+import { User, FileText } from 'lucide-react'
 import LevelBadge from './LevelBadge'
 
-function formatCurrency(v) {
-  return v ? `R$ ${Number(v).toLocaleString('pt-BR')}` : null
-}
 
 const REGIME_SHORT = {
   'Simples Nacional': 'Simples',
@@ -24,8 +21,8 @@ export default function MonthlyCard({ client, index, onOpen }) {
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           onClick={() => { if (!snapshot.isDragging) onOpen?.(client) }}
-          className={`card-base ${snapshot.isDragging ? 'opacity-80 scale-[1.02] shadow-2xl border-amber-500/50' : ''} ${
-            isPremium ? 'border-amber-500/25 bg-gradient-to-br from-gray-800 to-amber-950/20' : ''
+          className={`card-base ${snapshot.isDragging ? 'opacity-80 scale-[1.02] shadow-2xl border-brand-500/50' : ''} ${
+            isPremium ? 'border-brand-500/25 bg-gradient-to-br from-gray-800 to-brand-950/20' : ''
           }`}
         >
           {/* Header */}
@@ -38,18 +35,10 @@ export default function MonthlyCard({ client, index, onOpen }) {
                 </span>
               )}
             </div>
-            <p className="text-sm font-semibold text-gray-100 leading-tight" title={client.name}>
+            <p className="text-sm font-semibold text-gray-900 leading-tight" title={client.name}>
               {client.name}
             </p>
           </div>
-
-          {/* Revenue */}
-          {client.monthlyRevenue > 0 && (
-            <div className="flex items-center gap-1.5 mt-3">
-              <TrendingUp size={11} className="text-gray-500 flex-shrink-0" />
-              <span className="text-xs text-gray-500">{formatCurrency(client.monthlyRevenue)}/mês</span>
-            </div>
-          )}
 
           {/* Notes */}
           {client.notes && (
@@ -60,7 +49,7 @@ export default function MonthlyCard({ client, index, onOpen }) {
           )}
 
           {/* Footer */}
-          <div className="flex items-center gap-1 pt-2 mt-2 border-t border-gray-700/60">
+          <div className="flex items-center gap-1 pt-2 mt-2 border-t border-gray-200/60">
             <User size={11} className="text-gray-500" />
             <span className="text-xs text-gray-500">{client.responsible}</span>
           </div>

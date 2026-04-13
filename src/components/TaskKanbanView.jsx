@@ -13,11 +13,11 @@ const PRIORITY_COLS = [
   { id: 'alta',    label: 'Alta Prioridade',  bg: 'bg-red-500/10',     border: 'border-red-500/30',     text: 'text-red-400',    dot: 'bg-red-400',    headerBg: 'bg-red-950/40' },
   { id: 'media',   label: 'Média Prioridade', bg: 'bg-yellow-500/10',  border: 'border-yellow-500/30',  text: 'text-yellow-400', dot: 'bg-yellow-400', headerBg: 'bg-yellow-950/40' },
   { id: 'baixa',   label: 'Baixa Prioridade', bg: 'bg-blue-500/10',    border: 'border-blue-500/30',    text: 'text-blue-400',   dot: 'bg-blue-400',   headerBg: 'bg-blue-950/40' },
-  { id: 'nenhuma', label: 'Sem Prioridade',   bg: 'bg-gray-700/20',    border: 'border-gray-600/40',    text: 'text-gray-400',   dot: 'bg-gray-600',   headerBg: 'bg-gray-800/60' },
+  { id: 'nenhuma', label: 'Sem Prioridade',   bg: 'bg-gray-700/20',    border: 'border-gray-600/40',    text: 'text-gray-400',   dot: 'bg-gray-600',   headerBg: 'bg-gray-100/60' },
 ]
 
 const STATUS_COLS = [
-  { id: 'pendente',     label: 'Pendente',     bg: 'bg-gray-700/20',    border: 'border-gray-600/40',    text: 'text-gray-400',    dot: 'bg-gray-500',    headerBg: 'bg-gray-800/60' },
+  { id: 'pendente',     label: 'Pendente',     bg: 'bg-gray-700/20',    border: 'border-gray-600/40',    text: 'text-gray-400',    dot: 'bg-gray-500',    headerBg: 'bg-gray-100/60' },
   { id: 'em_andamento', label: 'Em Andamento', bg: 'bg-blue-500/10',    border: 'border-blue-500/30',    text: 'text-blue-400',    dot: 'bg-blue-400',    headerBg: 'bg-blue-950/40' },
   { id: 'concluida',    label: 'Concluída',    bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400', dot: 'bg-emerald-400', headerBg: 'bg-emerald-950/40' },
 ]
@@ -64,16 +64,16 @@ function KanbanCard({ task, index, users, clients, groupBy, onToggle, onUpdate, 
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...(editing ? {} : provided.dragHandleProps)}
-          className={`bg-gray-800 rounded-xl border shadow-md transition-all ${
+          className={`bg-gray-100 rounded-xl border shadow-md transition-all ${
             editing
-              ? 'border-amber-500/40 cursor-default'
+              ? 'border-brand-500/40 cursor-default'
               : snapshot.isDragging
-              ? 'opacity-90 scale-[1.02] shadow-2xl border-amber-500/50 cursor-grabbing select-none'
+              ? 'opacity-90 scale-[1.02] shadow-2xl border-brand-500/50 cursor-grabbing select-none'
               : isDone
-              ? 'border-gray-700/40 opacity-60 cursor-grab select-none'
+              ? 'border-gray-200/40 opacity-60 cursor-grab select-none'
               : overdue
               ? 'border-red-500/30 bg-red-950/20 cursor-grab select-none'
-              : 'border-gray-700 hover:border-gray-500 cursor-grab select-none'
+              : 'border-gray-200 hover:border-gray-400 cursor-grab select-none'
           }`}
         >
           {editing ? (
@@ -92,13 +92,13 @@ function KanbanCard({ task, index, users, clients, groupBy, onToggle, onUpdate, 
             <div className="p-3 group">
               {/* Title + edit button */}
               <div className="flex items-start justify-between gap-1 mb-1.5">
-                <p className={`text-sm font-semibold leading-tight flex-1 min-w-0 ${isDone ? 'line-through text-gray-500' : 'text-gray-100'}`}>
+                <p className={`text-sm font-semibold leading-tight flex-1 min-w-0 ${isDone ? 'line-through text-gray-500' : 'text-gray-900'}`}>
                   {task.title}
                 </p>
                 <button
                   onMouseDown={e => e.stopPropagation()}
                   onClick={e => { e.stopPropagation(); setEditing(true) }}
-                  className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-600 hover:text-amber-400 transition-all flex-shrink-0"
+                  className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-600 hover:text-brand-400 transition-all flex-shrink-0"
                   title="Editar"
                 >
                   <Pencil size={12} />
@@ -141,7 +141,7 @@ function KanbanCard({ task, index, users, clients, groupBy, onToggle, onUpdate, 
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-700/50">
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200/50">
                 <div className="flex items-center gap-1.5 min-w-0">
                   {assignedUser && (
                     <div className="flex items-center gap-1">
@@ -153,7 +153,7 @@ function KanbanCard({ task, index, users, clients, groupBy, onToggle, onUpdate, 
                     <button
                       onMouseDown={e => e.stopPropagation()}
                       onClick={e => { e.stopPropagation(); onOpenClient(linkedClient) }}
-                      className="flex items-center gap-1 text-[10px] text-gray-600 hover:text-amber-400 transition-colors truncate max-w-[90px]"
+                      className="flex items-center gap-1 text-[10px] text-gray-600 hover:text-brand-400 transition-colors truncate max-w-[90px]"
                     >
                       <Building2 size={9} />
                       <span className="truncate">{linkedClient.name}</span>
@@ -166,7 +166,7 @@ function KanbanCard({ task, index, users, clients, groupBy, onToggle, onUpdate, 
                     onMouseDown={e => e.stopPropagation()}
                     onClick={e => { e.stopPropagation(); onUpdate(task.id, { showInAgenda: !inAgenda }) }}
                     title={inAgenda ? 'Ocultar da agenda' : 'Exibir na agenda'}
-                    className={`p-1 rounded transition-colors ${inAgenda ? 'text-amber-400/70 hover:text-amber-300' : 'text-gray-700 hover:text-amber-400'}`}
+                    className={`p-1 rounded transition-colors ${inAgenda ? 'text-brand-400/70 hover:text-brand-300' : 'text-gray-700 hover:text-brand-400'}`}
                   >
                     <CalendarDays size={12} />
                   </button>
@@ -221,7 +221,7 @@ export default function TaskKanbanView({ tasks, users, clients, groupBy, onGroup
       {/* Group-by toggle */}
       <div className="flex items-center gap-2">
         <span className="text-xs text-gray-500">Agrupar por:</span>
-        <div className="flex gap-1 bg-gray-800 rounded-lg p-1 border border-gray-700">
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-1 border border-gray-200">
           {[
             { id: 'priority', label: 'Prioridade' },
             { id: 'status',   label: 'Status' },
@@ -230,7 +230,7 @@ export default function TaskKanbanView({ tasks, users, clients, groupBy, onGroup
               key={opt.id}
               onClick={() => onGroupByChange(opt.id)}
               className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                groupBy === opt.id ? 'bg-amber-500/20 text-amber-300' : 'text-gray-500 hover:text-gray-300'
+                groupBy === opt.id ? 'bg-brand-500/20 text-brand-300' : 'text-gray-500 hover:text-gray-600'
               }`}
             >
               {opt.label}
@@ -287,7 +287,7 @@ export default function TaskKanbanView({ tasks, users, clients, groupBy, onGroup
                       ))}
                       {provided.placeholder}
                       {colTasks.length === 0 && !snapshot.isDraggingOver && (
-                        <div className="flex items-center justify-center h-16 rounded-lg border border-dashed border-gray-700">
+                        <div className="flex items-center justify-center h-16 rounded-lg border border-dashed border-gray-200">
                           <p className="text-xs text-gray-600">Sem tarefas</p>
                         </div>
                       )}

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAudit } from './AuditContext'
 
 const TasksContext = createContext(null)
 
@@ -92,6 +93,7 @@ export function TasksProvider({ children }) {
   const [tasks,   setTasks]   = useState([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
+  const { logAudit } = useAudit()
 
   const fetchTasks = useCallback(async () => {
     const { data, error: fetchErr } = await supabase
@@ -149,8 +151,13 @@ export function TasksProvider({ children }) {
     } else {
       setTasks(prev => [created, ...prev])
     }
+    logAudit({
+      action: 'create', menu: 'tarefas', entity: 'task',
+      entityId: created.id, entityName: created.title,
+      changes: { title: created.title, priority: created.priority, dueDate: created.dueDate, status: created.status },
+    })
     return created
-  }, [fetchTasks])
+  }, [fetchTasks, logAudit])
 
   const updateTask = useCallback(async (id, updates) => {
     const map = {
@@ -173,15 +180,27 @@ export function TasksProvider({ children }) {
     }
     const { error } = await supabase.from('tasks').update(dbUpdates).eq('id', id)
     if (error) throw new Error(error.message)
+    const existing = tasks.find(t => t.id === id)
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
-  }, [])
+    logAudit({
+      action: 'update', menu: 'tarefas', entity: 'task',
+      entityId: id, entityName: existing?.title,
+      changes: { fields: Object.keys(updates), updates },
+    })
+  }, [tasks, logAudit])
 
   const deleteTask = useCallback(async (id) => {
+    const target = tasks.find(t => t.id === id)
     // ON DELETE CASCADE cuida dos filhos automaticamente
     const { error } = await supabase.from('tasks').delete().eq('id', id)
     if (error) throw new Error(error.message)
     setTasks(prev => prev.filter(t => t.id !== id && t.recurringParentId !== id))
-  }, [])
+    logAudit({
+      action: 'delete', menu: 'tarefas', entity: 'task',
+      entityId: id, entityName: target?.title,
+      changes: { title: target?.title, status: target?.status, dueDate: target?.dueDate },
+    })
+  }, [tasks, logAudit])
 
   return (
     <TasksContext.Provider value={{ tasks, loading, error, addTask, updateTask, deleteTask }}>

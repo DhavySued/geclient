@@ -7,9 +7,42 @@
     box-sizing: border-box;
   }
   body {
-    @apply bg-gray-950 text-gray-100 antialiased;
+    @apply bg-gray-50 text-gray-900 antialiased;
     font-family: 'Poppins', system-ui, sans-serif;
     font-feature-settings: 'ss01', 'ss02';
+  }
+
+  /* Todos os elementos interativos mostram cursor pointer */
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="switch"],
+  select,
+  label[for] {
+    cursor: pointer;
+  }
+
+  /* Botões desabilitados sempre mostram cursor not-allowed */
+  button:disabled,
+  [role="button"][aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
+  /*
+   * Hover global: qualquer button sem hover explícito ganha
+   * uma leve iluminação para indicar que é clicável.
+   * Elementos que já definem seu próprio :hover sobrescrevem isso.
+   */
+  button:not(:disabled):hover {
+    filter: brightness(0.93);
+  }
+
+  /* Exceção: botões que já têm hover bem definido (via classe Tailwind
+     hover:*, .btn-primary, .btn-secondary) não devem sofrer duplo efeito */
+  button[class*="hover:"]:not(:disabled):hover,
+  .btn-primary:hover,
+  .btn-secondary:hover {
+    filter: none;
   }
 }
 
@@ -20,52 +53,59 @@
     @apply flex flex-col gap-3 min-w-[272px] w-[272px] flex-shrink-0;
   }
 
+  /* ── Drag & Drop — sem seleção de texto durante arrasto ────────── */
+  .kanban-board {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+  }
+
   /* ── Cards ──────────────────────────────────────────────────────── */
   .card-base {
-    @apply bg-[#111318] rounded-2xl p-4 border border-white/[0.06] shadow-lg cursor-grab active:cursor-grabbing;
+    @apply bg-white rounded-2xl p-4 border border-gray-200 shadow-sm cursor-grab active:cursor-grabbing;
     transition: border-color 150ms ease, box-shadow 150ms ease;
     will-change: transform;
   }
   .card-base:hover {
-    @apply border-white/[0.12] shadow-xl;
+    @apply border-gray-300 shadow-md;
   }
 
   /* ── Level Badges ───────────────────────────────────────────────── */
   .badge-premium {
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide;
-    background: linear-gradient(135deg, rgba(251,191,36,0.18) 0%, rgba(217,119,6,0.12) 100%);
-    border: 1px solid rgba(251,191,36,0.35);
-    color: #FCD34D;
+    background: rgba(243,146,0,0.12);
+    border: 1px solid rgba(243,146,0,0.30);
+    color: #c97700;
   }
   .badge-gold {
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide;
     background: rgba(234,179,8,0.10);
     border: 1px solid rgba(234,179,8,0.28);
-    color: #FDE68A;
+    color: #a16207;
   }
   .badge-standard {
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.10);
-    color: #9CA3AF;
+    background: rgba(0,0,0,0.04);
+    border: 1px solid rgba(0,0,0,0.10);
+    color: #6B7280;
   }
 
   /* ── Scrollbars ─────────────────────────────────────────────────── */
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #2D2D35 transparent;
+    scrollbar-color: #D1D5DB transparent;
   }
   .scrollbar-thin::-webkit-scrollbar { height: 5px; width: 5px; }
   .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: #2D2D35;
+    background-color: #D1D5DB;
     border-radius: 999px;
   }
 
   /* ── Rich Text Editor ───────────────────────────────────────────── */
   .rich-editor:empty::before {
     content: attr(data-placeholder);
-    color: #4b5563;
+    color: #9ca3af;
     pointer-events: none;
     display: block;
   }
@@ -76,27 +116,26 @@
 
   /* ── Inputs base ────────────────────────────────────────────────── */
   .input-base {
-    @apply w-full bg-[#0D0D11] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-amber-500/50 transition-colors;
+    @apply w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-brand-400/60 transition-colors;
   }
 
   /* ── Buttons ────────────────────────────────────────────────────── */
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-950 transition-all duration-150;
-    background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-    box-shadow: 0 2px 12px rgba(245,158,11,0.25);
+    @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150;
+    background: linear-gradient(135deg, #f39200 0%, #d97d00 100%);
+    color: #ffffff;
+    box-shadow: 0 2px 12px rgba(243,146,0,0.30);
   }
   .btn-primary:hover {
-    box-shadow: 0 4px 18px rgba(245,158,11,0.40);
-    filter: brightness(1.08);
+    box-shadow: 0 4px 18px rgba(243,146,0,0.45);
+    filter: brightness(1.06);
   }
   .btn-secondary {
-    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-300 border transition-all duration-150;
-    background: rgba(255,255,255,0.04);
-    border-color: rgba(255,255,255,0.10);
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-600 border border-gray-200 transition-all duration-150;
+    background: #ffffff;
   }
   .btn-secondary:hover {
-    @apply text-gray-100;
-    background: rgba(255,255,255,0.08);
-    border-color: rgba(255,255,255,0.16);
+    @apply text-gray-900 border-gray-300;
+    background: #F9FAFB;
   }
 }

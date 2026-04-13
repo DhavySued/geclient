@@ -4,6 +4,7 @@ const STORAGE_KEY = 'geclient_settings'
 
 const DEFAULTS = {
   showUndatedInCalendar: true,
+  stickyKanbanHeaders: true,
 }
 
 function load() {
