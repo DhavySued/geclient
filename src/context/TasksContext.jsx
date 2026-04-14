@@ -46,22 +46,33 @@ function taskToDb(t) {
 
 // ── Recurring spawn (runs once per month per template) ────────────────────────
 
-async function maybeSpawnRecurring() {
+async function maybeSpawnRecurring(targetYear, targetMonth) {
+  const yr = targetYear  ?? new Date().getFullYear()
+  const mo = targetMonth ?? (new Date().getMonth() + 1)
+  const monthKey = `${yr}-${String(mo).padStart(2, '0')}`
+
   const { data: templates, error } = await supabase
     .from('tasks')
     .select('*')
     .eq('repeat_monthly', true)
   if (error || !templates?.length) return
 
-  const now  = new Date()
-  const yr   = now.getFullYear()
-  const mo   = now.getMonth() + 1
-  const currentMonth = `${yr}-${String(mo).padStart(2, '0')}`
-
-  const toSpawn = templates.filter(t => t.last_spawned_month !== currentMonth)
+  const toSpawn = templates.filter(t => t.last_spawned_month !== monthKey)
   if (!toSpawn.length) return
 
-  const spawns = toSpawn.map(t => {
+  // Verifica quais já têm cópia spawned para esse mês (evita duplicatas)
+  const { data: existing } = await supabase
+    .from('tasks')
+    .select('recurring_parent_id')
+    .in('recurring_parent_id', toSpawn.map(t => t.id))
+    .gte('due_date', `${monthKey}-01`)
+    .lte('due_date', `${monthKey}-31`)
+  const alreadySpawned = new Set((existing ?? []).map(r => r.recurring_parent_id))
+
+  const needsSpawn = toSpawn.filter(t => !alreadySpawned.has(t.id))
+  if (!needsSpawn.length) return
+
+  const spawns = needsSpawn.map(t => {
     const maxDay = new Date(yr, mo, 0).getDate()
     const day    = Math.min(t.repeat_day || 1, maxDay)
     return {
@@ -69,7 +80,7 @@ async function maybeSpawnRecurring() {
       description:         t.description || '',
       status:              'pendente',
       priority:            t.priority || 'media',
-      due_date:            `${currentMonth}-${String(day).padStart(2, '0')}`,
+      due_date:            `${monthKey}-${String(day).padStart(2, '0')}`,
       time:                t.time || null,
       client_id:           t.client_id || null,
       assigned_to:         t.assigned_to || null,
@@ -80,11 +91,17 @@ async function maybeSpawnRecurring() {
   })
 
   await supabase.from('tasks').insert(spawns)
-  await Promise.all(
-    toSpawn.map(t =>
-      supabase.from('tasks').update({ last_spawned_month: currentMonth }).eq('id', t.id)
+
+  // Só atualiza last_spawned_month no mês atual para não "consumir" o spawn futuro
+  const now = new Date()
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  if (monthKey === currentMonthKey) {
+    await Promise.all(
+      needsSpawn.map(t =>
+        supabase.from('tasks').update({ last_spawned_month: monthKey }).eq('id', t.id)
+      )
     )
-  )
+  }
 }
 
 // ── Provider ──────────────────────────────────────────────────────────────────
@@ -118,6 +135,11 @@ export function TasksProvider({ children }) {
       await fetchTasks()
     }
     init()
+  }, [fetchTasks])
+
+  const spawnForMonth = useCallback(async (year, month) => {
+    await maybeSpawnRecurring(year, month)
+    await fetchTasks()
   }, [fetchTasks])
 
   // Real-time subscription
@@ -203,7 +225,7 @@ export function TasksProvider({ children }) {
   }, [tasks, logAudit])
 
   return (
-    <TasksContext.Provider value={{ tasks, loading, error, addTask, updateTask, deleteTask }}>
+    <TasksContext.Provider value={{ tasks, loading, error, addTask, updateTask, deleteTask, spawnForMonth }}>
       {children}
     </TasksContext.Provider>
   )

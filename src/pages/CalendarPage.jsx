@@ -165,6 +165,25 @@ export default function CalendarPage({ onOpenClient }) {
       tasksByDate[t.dueDate].push(t)
     }
   }
+
+  // Projeta tarefas recorrentes do mês visualizado que ainda não foram spawnadas
+  const viewedMonthKey = `${year}-${String(month + 1).padStart(2, '0')}`
+  const templates = tasks.filter(t => t.repeatMonthly)
+  for (const tmpl of templates) {
+    const maxDay  = new Date(year, month + 1, 0).getDate()
+    const day     = Math.min(tmpl.repeatDay || 1, maxDay)
+    const dateStr = `${viewedMonthKey}-${String(day).padStart(2, '0')}`
+    // Só projeta se ainda não existe uma cópia real spawnada nesse mês
+    const alreadySpawned = tasks.some(
+      t => t.recurringParentId === tmpl.id && t.dueDate?.startsWith(viewedMonthKey)
+    )
+    if (!alreadySpawned && tmpl.showInAgenda !== false) {
+      if (!tasksByDate[dateStr]) tasksByDate[dateStr] = []
+      // Projeta como uma cópia virtual (não modifica o template original)
+      tasksByDate[dateStr].push({ ...tmpl, _virtual: true, dueDate: dateStr, repeatMonthly: false })
+    }
+  }
+
   for (const date in tasksByDate) {
     tasksByDate[date].sort((a, b) => {
       if (!a.time && !b.time) return 0
@@ -393,19 +412,38 @@ export default function CalendarPage({ onOpenClient }) {
                     </div>
                   </div>
                   <div className="overflow-y-auto scrollbar-thin p-2 space-y-1.5" style={{ maxHeight: 172 }}>
-                    {selectedTasks.map(task => (
-                      <TaskCard
-                        key={`${task.id}${task._overdue ? '_ov' : ''}`}
-                        task={task}
-                        clientMap={clientMap}
-                        overdueDate={task._overdue ? task.dueDate : null}
-                        onToggle={() => updateTask(task.id, { status: task.status === 'concluida' ? 'pendente' : 'concluida' })}
-                        onDelete={() => deleteTask(task.id)}
-                        onOpenClient={onOpenClient}
-                        canEdit={canEdit}
-                        canDelete={canDelete}
-                      />
-                    ))}
+                    {selectedTasks.map(task => {
+                      const handleToggle = task._virtual
+                        // Tarefa virtual: spawna cópia real para esse mês já como concluída
+                        ? () => canEdit && addTask({
+                            title:             task.title,
+                            description:       task.description,
+                            status:            'concluida',
+                            priority:          task.priority,
+                            dueDate:           task.dueDate,
+                            time:              task.time,
+                            clientId:          task.clientId,
+                            assignedTo:        task.assignedTo,
+                            showInAgenda:      task.showInAgenda,
+                            repeatMonthly:     false,
+                            recurringParentId: task.id,
+                          })
+                        : () => updateTask(task.id, { status: task.status === 'concluida' ? 'pendente' : 'concluida' })
+
+                      return (
+                        <TaskCard
+                          key={`${task.id}${task._overdue ? '_ov' : ''}${task._virtual ? '_virt' : ''}`}
+                          task={task}
+                          clientMap={clientMap}
+                          overdueDate={task._overdue ? task.dueDate : null}
+                          onToggle={handleToggle}
+                          onDelete={() => !task._virtual && deleteTask(task.id)}
+                          onOpenClient={onOpenClient}
+                          canEdit={canEdit}
+                          canDelete={canDelete && !task._virtual}
+                        />
+                      )
+                    })}
                   </div>
                 </div>
               )}
