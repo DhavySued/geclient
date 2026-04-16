@@ -183,13 +183,18 @@ function AnalysisTab({ client, selectedMonth }) {
   const savedChecks   = record?.checks ?? {}
 
   // Draft local — só persiste ao clicar em Salvar
-  const [draft,   setDraft]   = useState(() => ({ ...savedChecks }))
-  const [saving,  setSaving]  = useState(false)
+  const [draft,      setDraft]      = useState(() => ({ ...savedChecks }))
+  const [note,       setNote]       = useState(record?.note ?? '')
+  const [saving,     setSaving]     = useState(false)
+  const [savingNote, setSavingNote] = useState(false)
 
   // Sincroniza draft quando o registro externo muda (ex: outro usuário ou tab)
   const savedKey = JSON.stringify(savedChecks)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useState(() => { setDraft({ ...savedChecks }) }, [savedKey])
+
+  // Sincroniza note quando o registro externo muda
+  useEffect(() => { setNote(record?.note ?? '') }, [record?.note]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isDirty      = JSON.stringify(draft) !== JSON.stringify(savedChecks)
   const allMarked    = applicableItems.length > 0 &&
@@ -225,7 +230,7 @@ function AnalysisTab({ client, selectedMonth }) {
         status:       'sem_pendencia',
         checks:       allOk,
         pendingTaxes: record?.pendingTaxes ?? client.pendingTaxes ?? [],
-        note:         record?.note ?? '',
+        note,
       })
       updateClient(client.id, { scoreFiscal: 100, fiscalStatus: 'sem_pendencia' })
     } finally {
@@ -241,11 +246,25 @@ function AnalysisTab({ client, selectedMonth }) {
         status:       newStatus,
         checks:       draft,
         pendingTaxes: record?.pendingTaxes ?? client.pendingTaxes ?? [],
-        note:         record?.note         ?? '',
+        note,
       })
       updateClient(client.id, { scoreFiscal: previewScore, fiscalStatus: newStatus })
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleSaveNote() {
+    setSavingNote(true)
+    try {
+      await upsertRecord(client.id, activeMonth, {
+        status:       record?.status       ?? client.fiscalStatus ?? 'sem_consulta',
+        checks:       savedChecks,
+        pendingTaxes: record?.pendingTaxes ?? client.pendingTaxes ?? [],
+        note,
+      })
+    } finally {
+      setSavingNote(false)
     }
   }
 
@@ -435,13 +454,27 @@ function AnalysisTab({ client, selectedMonth }) {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <FileText size={14} className="text-gray-400" />
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Observações internas</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Observações do mês</p>
         </div>
-        <div className="bg-gray-100/60 rounded-xl p-4 border border-gray-200/50 min-h-[80px]">
-          {client.notes
-            ? <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{client.notes}</p>
-            : <p className="text-sm text-gray-600 italic">Nenhuma observação registrada.</p>}
-        </div>
+        <textarea
+          value={note}
+          onChange={e => setNote(e.target.value)}
+          rows={3}
+          placeholder="Adicione observações sobre este mês..."
+          className="w-full bg-gray-100/60 border border-gray-200/50 rounded-xl px-4 py-3 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-brand-500/50 resize-none"
+        />
+        {note !== (record?.note ?? '') && (
+          <div className="flex justify-end mt-2">
+            <button
+              type="button"
+              onClick={handleSaveNote}
+              disabled={savingNote}
+              className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-brand-500 hover:bg-brand-400 text-gray-900 transition-all disabled:opacity-50"
+            >
+              {savingNote ? 'Salvando…' : 'Salvar observação'}
+            </button>
+          </div>
+        )}
       </div>
 
     </div>
