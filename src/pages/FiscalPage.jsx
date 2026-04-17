@@ -87,7 +87,6 @@ export default function FiscalPage({ onOpenClient }) {
   const [showSettings, setShowSettings] = useState(false)
   const { can } = usePermissions()
   const canEdit = can('fiscal', 'edit')
-  const [pendingDrag, setPendingDrag]   = useState(null)
   const { onDragScrollStart, onDragScrollEnd } = useDragScroll()
   const { settings } = useSettings()
   const stickyHeaders = settings.stickyKanbanHeaders
@@ -260,22 +259,7 @@ export default function FiscalPage({ onOpenClient }) {
     if (destination.droppableId === source.droppableId &&
         destination.index       === source.index) return
 
-    const score       = getClientScore(draggableId)
-    const isFullScore = score === 100
-
-    // Score 100 leaving sem_pendencia → ask for confirmation first.
-    // Don't move the card yet — it will snap back, and we confirm via modal.
-    if (isFullScore && source.droppableId === 'sem_pendencia' && destination.droppableId !== 'sem_pendencia') {
-      setPendingDrag({ draggableId, source, destination })
-      return
-    }
-
-    // Score 100 dropped anywhere else → redirect to sem_pendencia
-    const effectiveDestination = (isFullScore && destination.droppableId !== 'sem_pendencia')
-      ? { droppableId: 'sem_pendencia', index: 0 }
-      : destination
-
-    applyMove(draggableId, source, effectiveDestination)
+    applyMove(draggableId, source, destination)
   }
 
   return (
@@ -509,49 +493,6 @@ export default function FiscalPage({ onOpenClient }) {
         />
       )}
 
-      {/* Score 100% — confirmation to leave sem_pendencia */}
-      {pendingDrag && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.45)' }}
-        >
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-                style={{ background: 'rgba(16,185,129,0.12)' }}>
-                <AlertTriangle size={18} style={{ color: '#059669' }} />
-              </div>
-              <div>
-                <p className="text-[14px] font-bold text-gray-900">Score Fiscal 100%</p>
-                <p className="text-[12px] text-gray-500">
-                  {clientMap[pendingDrag.draggableId]?.name ?? 'Este cliente'} está com tudo em dia.
-                </p>
-              </div>
-            </div>
-            <p className="text-[13px] text-gray-600 mb-6 leading-relaxed">
-              Tem certeza que deseja mover este cliente para outra coluna? Ele está com score fiscal <strong>100/100</strong>.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setPendingDrag(null)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => {
-                  const { draggableId, source, destination } = pendingDrag
-                  applyMove(draggableId, source, destination)
-                  setPendingDrag(null)
-                }}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors"
-                style={{ background: '#EF4444' }}
-              >
-                Sim, mover assim mesmo
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

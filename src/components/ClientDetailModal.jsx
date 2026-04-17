@@ -226,13 +226,15 @@ function AnalysisTab({ client, selectedMonth }) {
     try {
       const allOk = Object.fromEntries(applicableItems.map(i => [i.id, 'ok']))
       setDraft(allOk)
+      const currentStatus = record?.status ?? client.fiscalStatus ?? 'sem_consulta'
+      const newStatus = currentStatus === 'sem_consulta' ? 'sem_pendencia' : currentStatus
       await upsertRecord(client.id, activeMonth, {
-        status:       'sem_pendencia',
+        status:       newStatus,
         checks:       allOk,
         pendingTaxes: record?.pendingTaxes ?? client.pendingTaxes ?? [],
         note,
       })
-      updateClient(client.id, { scoreFiscal: 100, fiscalStatus: 'sem_pendencia' })
+      updateClient(client.id, { scoreFiscal: 100, fiscalStatus: newStatus })
     } finally {
       setSaving(false)
     }
@@ -241,7 +243,10 @@ function AnalysisTab({ client, selectedMonth }) {
   async function handleSave() {
     setSaving(true)
     try {
-      const newStatus = previewScore === 100 ? 'sem_pendencia' : 'com_pendencia'
+      const currentStatus = record?.status ?? client.fiscalStatus ?? 'sem_consulta'
+      const newStatus = (previewScore === 100 && currentStatus === 'sem_consulta')
+        ? 'sem_pendencia'
+        : currentStatus
       await upsertRecord(client.id, activeMonth, {
         status:       newStatus,
         checks:       draft,
