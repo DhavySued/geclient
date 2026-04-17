@@ -303,8 +303,8 @@ function AnalysisTab({ client, selectedMonth }) {
           </div>
         </div>
 
-        {/* Em exclusão do Simples — só aparece para Simples Nacional */}
-        {client.regime === 'Simples Nacional' && (
+        {/* Em exclusão do Simples — aparece para Simples Nacional e MEI */}
+        {(client.regime === 'Simples Nacional' || client.regime === 'MEI') && (
           <div className="mt-3 pt-3 border-t border-gray-200/40">
             <label className="flex items-center gap-2.5 cursor-pointer select-none">
               <input
