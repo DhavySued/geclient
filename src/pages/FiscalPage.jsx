@@ -84,6 +84,7 @@ export default function FiscalPage({ onOpenClient }) {
   const [tipoFilter, setTipoFilter]     = useState('all')
   const [nameSearch, setNameSearch]     = useState('')
   const [sortAlpha, setSortAlpha]       = useState(false)
+  const [exclusaoFilter, setExclusaoFilter] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const { can } = usePermissions()
   const canEdit = can('fiscal', 'edit')
@@ -231,7 +232,8 @@ export default function FiscalPage({ onOpenClient }) {
     // While localCols is null (first render), fall back to server order
     const ids = localCols?.[colId]
       ?? (kanbanColumns[colId]?.clients ?? []).map(c => c.id)
-    const clients = ids.map(id => clientMap[id]).filter(Boolean)
+    let clients = ids.map(id => clientMap[id]).filter(Boolean)
+    if (exclusaoFilter) clients = clients.filter(c => c.emExclusaoSimples)
     return sortAlpha
       ? [...clients].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }))
       : clients
@@ -398,10 +400,29 @@ export default function FiscalPage({ onOpenClient }) {
           ))}
         </div>
 
+        {/* Filtro exclusão do Simples */}
+        <button
+          onClick={() => setExclusaoFilter(v => !v)}
+          title={exclusaoFilter ? 'Remover filtro de exclusão' : 'Mostrar só empresas em exclusão do Simples/MEI'}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all"
+          style={exclusaoFilter ? {
+            background: 'rgba(239,68,68,0.12)',
+            border: '1px solid rgba(239,68,68,0.40)',
+            color: '#DC2626',
+          } : {
+            background: 'rgba(0,0,0,0.03)',
+            border: '1px solid rgba(0,0,0,0.08)',
+            color: '#6B7280',
+          }}
+        >
+          <AlertTriangle size={11} />
+          Exclusão
+        </button>
+
         {/* Limpar filtros — aparece só quando algum está ativo */}
-        {(regimeFilter !== 'all' || tipoFilter !== 'all' || nameSearch) && (
+        {(regimeFilter !== 'all' || tipoFilter !== 'all' || nameSearch || exclusaoFilter) && (
           <button
-            onClick={() => { setRegimeFilter('all'); setTipoFilter('all'); setNameSearch('') }}
+            onClick={() => { setRegimeFilter('all'); setTipoFilter('all'); setNameSearch(''); setExclusaoFilter(false) }}
             className="ml-1 flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] transition-all"
             style={{ color: '#9CA3AF', border: '1px solid rgba(0,0,0,0.08)' }}
           >
