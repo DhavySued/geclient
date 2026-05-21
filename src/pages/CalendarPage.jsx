@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { ChevronLeft, ChevronRight, Calendar, Building2, Flag, AlertTriangle, GripVertical } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar, Building2, Flag, AlertTriangle, GripVertical, X, CheckCircle2, Circle } from 'lucide-react'
 import { useTasks } from '../context/TasksContext'
 import { useClients } from '../context/ClientsContext'
+import { useUsers } from '../context/UsersContext'
 import { usePermissions } from '../hooks/usePermissions'
+import ClientSelect from '../components/ClientSelect'
 
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -115,6 +117,557 @@ function TaskCard({ task, clientMap, onToggle, onDelete, onOpenClient, overdueDa
   )
 }
 
+// ── Modal de detalhe de tarefa ────────────────────────────────────────────────
+function TaskDetailModal({ task, clients, users, clientMap, userMap, onClose, onToggle, onSave, onDelete, canEdit, canDelete }) {
+  const [title,    setTitle]    = useState(task.title)
+  const [dueDate,  setDueDate]  = useState(task.dueDate  ?? '')
+  const [time,     setTime]     = useState(task.time     ?? '')
+  const [priority, setPriority] = useState(task.priority ?? 'media')
+  const [clientId, setClientId] = useState(task.clientId ?? '')
+  const [editDesc, setEditDesc] = useState(false)
+  const [desc,     setDesc]     = useState(task.description ?? '')
+
+  const isDone  = task.status === 'concluida'
+  const client  = clientMap[clientId]
+
+  const dirty =
+    title    !== task.title        ||
+    dueDate  !== (task.dueDate  ?? '') ||
+    time     !== (task.time     ?? '') ||
+    priority !== (task.priority ?? 'media') ||
+    clientId !== (task.clientId ?? '') ||
+    desc     !== (task.description ?? '')
+
+  function handleSave() {
+    onSave(task.id, {
+      title:       title.trim() || task.title,
+      dueDate:     dueDate  || null,
+      time:        time     || null,
+      priority,
+      clientId:    clientId || null,
+      description: desc,
+    })
+  }
+
+  const PRIO = [
+    { id: 'alta',    label: 'Alta',    cls: 'bg-red-100 text-red-700 border-red-300' },
+    { id: 'media',   label: 'Média',   cls: 'bg-amber-100 text-amber-700 border-amber-300' },
+    { id: 'baixa',   label: 'Baixa',   cls: 'bg-sky-100 text-sky-700 border-sky-300' },
+    { id: 'nenhuma', label: 'Nenhuma', cls: 'bg-gray-100 text-gray-500 border-gray-300' },
+  ]
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col" style={{ maxHeight: '90vh' }}>
+
+        {/* Header — título editável */}
+        <div className="flex items-start gap-3 px-5 py-4 border-b border-gray-100 flex-shrink-0">
+          <div className={`mt-2.5 w-2.5 h-2.5 rounded-full flex-shrink-0 ${PRIORITY_STYLE[priority]?.dot ?? 'bg-gray-400'}`} />
+          <div className="flex-1 min-w-0">
+            {canEdit ? (
+              <input
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                className={`w-full text-[15px] font-bold bg-transparent focus:outline-none focus:bg-gray-50 focus:rounded-lg focus:px-2 focus:-mx-2 transition-all ${
+                  isDone ? 'line-through text-gray-400' : 'text-gray-900'
+                }`}
+                placeholder="Título da tarefa"
+              />
+            ) : (
+              <p className={`text-[15px] font-bold ${isDone ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                {task.title}
+              </p>
+            )}
+            {isDone && (
+              <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-px rounded-md">
+                <CheckCircle2 size={9} /> Concluída
+              </span>
+            )}
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4 space-y-4">
+
+          {/* Data + Hora */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                Data de vencimento
+              </label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={e => setDueDate(e.target.value)}
+                disabled={!canEdit}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-brand-400/60 transition-colors disabled:opacity-50"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                Horário
+              </label>
+              <input
+                type="time"
+                value={time}
+                onChange={e => setTime(e.target.value)}
+                disabled={!canEdit}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-brand-400/60 transition-colors disabled:opacity-50"
+              />
+            </div>
+          </div>
+
+          {/* Prioridade */}
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+              Prioridade
+            </label>
+            <div className="flex rounded-xl border border-gray-200 overflow-hidden">
+              {PRIO.map(p => (
+                <button
+                  key={p.id}
+                  type="button"
+                  disabled={!canEdit}
+                  onClick={() => canEdit && setPriority(p.id)}
+                  className={`flex-1 py-2 text-[11px] font-semibold transition-colors border-r last:border-r-0 border-gray-200 ${
+                    priority === p.id ? p.cls : 'bg-white text-gray-400 hover:bg-gray-50'
+                  } disabled:cursor-default`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Empresa */}
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+              Empresa
+            </label>
+            {canEdit ? (
+              <ClientSelect
+                clients={clients}
+                value={clientId}
+                onChange={setClientId}
+                placeholder="Sem empresa vinculada"
+              />
+            ) : client ? (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-700">
+                <Building2 size={13} className="text-gray-400" />
+                {client.name}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 italic">Sem empresa vinculada</p>
+            )}
+          </div>
+
+          {/* Descrição */}
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+              Descrição
+            </label>
+            {canEdit && editDesc ? (
+              <textarea
+                autoFocus
+                value={desc}
+                onChange={e => setDesc(e.target.value)}
+                onBlur={() => setEditDesc(false)}
+                rows={4}
+                className="w-full bg-gray-50 border border-brand-400/40 rounded-xl px-3 py-2 text-sm text-gray-700 focus:outline-none resize-none scrollbar-thin"
+                placeholder="Adicione uma descrição..."
+              />
+            ) : desc ? (
+              <div
+                className="text-[13px] text-gray-600 leading-relaxed rounded-xl px-3 py-2 bg-gray-50 border border-gray-200 cursor-text min-h-[60px]"
+                style={{ wordBreak: 'break-word' }}
+                dangerouslySetInnerHTML={{ __html: desc }}
+                onClick={() => canEdit && setEditDesc(true)}
+                title={canEdit ? 'Clique para editar' : undefined}
+              />
+            ) : (
+              <div
+                className={`text-[12px] text-gray-400 italic rounded-xl px-3 py-2 bg-gray-50 border border-dashed border-gray-200 min-h-[48px] flex items-center ${canEdit ? 'cursor-text hover:border-gray-300' : ''}`}
+                onClick={() => canEdit && setEditDesc(true)}
+              >
+                {canEdit ? 'Clique para adicionar uma descrição…' : 'Sem descrição.'}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-gray-100 flex items-center gap-2 flex-shrink-0">
+          {/* Salvar (quando há alterações) */}
+          {canEdit && dirty && (
+            <button
+              onClick={handleSave}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all flex-1 justify-center"
+              style={{ background: 'rgba(243,146,0,0.15)', color: '#c97700', border: '1px solid rgba(243,146,0,0.35)' }}
+            >
+              <CheckCircle2 size={14} />
+              Salvar alterações
+            </button>
+          )}
+
+          {/* Concluir / Reabrir (quando sem alterações pendentes) */}
+          {(!dirty || !canEdit) && (
+            <button
+              onClick={() => canEdit && onToggle(task)}
+              disabled={!canEdit}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all flex-1 justify-center ${
+                isDone
+                  ? 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+              } ${!canEdit ? 'opacity-40 cursor-not-allowed' : ''}`}
+            >
+              <CheckCircle2 size={14} />
+              {isDone ? 'Reabrir' : 'Concluir'}
+            </button>
+          )}
+
+          {canDelete && (
+            <button
+              onClick={() => { onDelete(task.id); onClose() }}
+              className="p-2 rounded-xl text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+              title="Excluir tarefa"
+            >
+              <X size={15} />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Modal de tarefas do dia ───────────────────────────────────────────────────
+function DayTasksModal({ date, tasks, clients, clientMap, onClose, onToggleTask, onAddTask, onDeleteTask, onUpdateTask, onOpenClient, canEdit, canDelete }) {
+  const doneCount = tasks.filter(t => t.status === 'concluida').length
+
+  const [showForm,      setShowForm]      = useState(false)
+  const [newTitle,      setNewTitle]      = useState('')
+  const [newPrio,       setNewPrio]       = useState('media')
+  const [newTime,       setNewTime]       = useState('')
+  const [newClient,     setNewClient]     = useState('')
+  const [saving,        setSaving]        = useState(false)
+  const [editingDateId, setEditingDateId] = useState(null)
+  const [editingDate,   setEditingDate]   = useState('')
+
+  function startEditDate(task) {
+    setEditingDateId(task.id)
+    setEditingDate(task.dueDate ?? '')
+  }
+
+  function commitDate(taskId) {
+    if (editingDate) onUpdateTask(taskId, { dueDate: editingDate })
+    setEditingDateId(null)
+    setEditingDate('')
+  }
+
+  function cancelDate() {
+    setEditingDateId(null)
+    setEditingDate('')
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!newTitle.trim()) return
+    setSaving(true)
+    try {
+      await onAddTask({
+        title:    newTitle.trim(),
+        priority: newPrio,
+        dueDate:  date,
+        time:     newTime || null,
+        clientId: newClient || null,
+      })
+      setNewTitle(''); setNewPrio('media'); setNewTime(''); setNewClient('')
+      setShowForm(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col" style={{ maxHeight: '85vh' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mb-0.5">Tarefas do dia</p>
+            <p className="text-[15px] font-bold text-gray-900 capitalize">{formatFull(date)}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] font-medium text-gray-400">
+              <span className="text-emerald-600 font-bold">{doneCount}</span>/{tasks.length} concluída{tasks.length !== 1 ? 's' : ''}
+            </span>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Lista de tarefas */}
+        <div className="overflow-y-auto flex-1 p-4 space-y-2 scrollbar-thin">
+          {tasks.length === 0 && !showForm && (
+            <p className="text-center text-[12px] text-gray-400 py-6">Nenhuma tarefa neste dia.</p>
+          )}
+          {tasks.map(task => {
+            const isDone = task.status === 'concluida'
+            const pStyle = PRIORITY_STYLE[task.priority] ?? PRIORITY_STYLE.nenhuma
+            const c = clientMap[task.clientId]
+
+            function handleToggle() {
+              if (!canEdit) return
+              if (task._virtual) {
+                onAddTask({
+                  title:             task.title,
+                  description:       task.description,
+                  status:            'concluida',
+                  priority:          task.priority,
+                  dueDate:           task.dueDate,
+                  time:              task.time,
+                  clientId:          task.clientId,
+                  assignedTo:        task.assignedTo,
+                  showInAgenda:      task.showInAgenda,
+                  repeatMonthly:     false,
+                  recurringParentId: task.id,
+                })
+              } else {
+                onToggleTask(task.id, isDone ? 'pendente' : 'concluida')
+              }
+            }
+
+            return (
+              <div
+                key={`${task.id}${task._overdue ? '_ov' : ''}${task._virtual ? '_virt' : ''}`}
+                className={`rounded-xl border transition-all ${
+                  isDone
+                    ? 'bg-gray-50 border-gray-200/60'
+                    : task._overdue
+                    ? 'bg-red-50 border-red-200'
+                    : 'bg-white border-gray-200 shadow-sm'
+                }`}
+              >
+                <div className="flex items-center gap-3 px-3 py-3">
+                  <button
+                    onClick={handleToggle}
+                    disabled={!canEdit}
+                    className={`flex-shrink-0 transition-colors ${!canEdit ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                    title={isDone ? 'Reabrir' : 'Marcar como concluída'}
+                  >
+                    {isDone
+                      ? <CheckCircle2 size={18} className="text-emerald-500" />
+                      : <Circle size={18} className="text-gray-300 hover:text-emerald-400" />
+                    }
+                  </button>
+
+                  <div className="flex-1 min-w-0">
+                    {task._overdue && (
+                      <div className="flex items-center gap-1 mb-0.5">
+                        <AlertTriangle size={9} className="text-red-500 flex-shrink-0" />
+                        <span className="text-[9px] font-bold text-red-500 uppercase tracking-wide">
+                          Vencida · {new Date(task.dueDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                        </span>
+                      </div>
+                    )}
+                    <p className={`text-[13px] leading-snug ${isDone ? 'line-through text-gray-400' : 'text-gray-900 font-semibold'}`}>
+                      {task.title}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className={`text-[10px] px-1.5 py-px rounded-md border font-semibold ${pStyle.bg} ${pStyle.text} ${pStyle.border}`}>
+                        {pStyle.label}
+                      </span>
+                      {task.time && (
+                        <span className="text-[10px] text-gray-500 font-medium">{task.time}</span>
+                      )}
+                      {c && (
+                        <button
+                          onClick={() => { onOpenClient?.(c); onClose() }}
+                          className="flex items-center gap-0.5 text-[10px] text-gray-500 hover:text-brand-400 transition-colors min-w-0"
+                        >
+                          <Building2 size={8} className="flex-shrink-0" />
+                          <span className="truncate max-w-[100px]">{c.name}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-0.5 flex-shrink-0">
+                    {/* Editar data — só tarefas reais e não virtuais */}
+                    {canEdit && !task._virtual && (
+                      editingDateId === task.id ? (
+                        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                          <input
+                            autoFocus
+                            type="date"
+                            value={editingDate}
+                            onChange={e => setEditingDate(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') commitDate(task.id)
+                              if (e.key === 'Escape') cancelDate()
+                            }}
+                            className="text-[11px] border border-brand-400/50 rounded-lg px-1.5 py-1 text-gray-700 focus:outline-none bg-white"
+                            style={{ width: 120 }}
+                          />
+                          <button
+                            onMouseDown={e => { e.preventDefault(); commitDate(task.id) }}
+                            className="p-1 rounded text-emerald-500 hover:text-emerald-600 transition-colors"
+                            title="Confirmar"
+                          >
+                            <CheckCircle2 size={13} />
+                          </button>
+                          <button
+                            onMouseDown={e => { e.preventDefault(); cancelDate() }}
+                            className="p-1 rounded text-gray-300 hover:text-gray-500 transition-colors"
+                            title="Cancelar"
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={e => { e.stopPropagation(); startEditDate(task) }}
+                          className="p-1 rounded text-gray-300 hover:text-brand-400 transition-colors"
+                          title="Alterar data de vencimento"
+                        >
+                          <Calendar size={13} />
+                        </button>
+                      )
+                    )}
+                    {canDelete && !task._virtual && (
+                      <button
+                        onClick={() => onDeleteTask(task.id)}
+                        className="p-1 rounded text-gray-300 hover:text-red-400 transition-colors"
+                        title="Excluir"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Formulário de nova tarefa */}
+        {canEdit && (
+          <div className="flex-shrink-0 border-t border-gray-100">
+            {!showForm ? (
+              <div className="px-5 py-3">
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium transition-all border border-dashed border-gray-300 text-gray-400 hover:border-brand-400/60 hover:text-brand-500 hover:bg-brand-50/50"
+                >
+                  <X size={13} className="rotate-45" />
+                  Nova tarefa neste dia
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="px-5 py-4 space-y-3">
+                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Nova tarefa</p>
+
+                {/* Título */}
+                <input
+                  autoFocus
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  placeholder="Título da tarefa..."
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-brand-400/60 transition-colors"
+                />
+
+                <div className="flex gap-2">
+                  {/* Prioridade */}
+                  <div className="flex rounded-lg border border-gray-200 overflow-hidden flex-shrink-0">
+                    {['alta', 'media', 'baixa'].map(p => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setNewPrio(p)}
+                        className={`px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
+                          newPrio === p
+                            ? p === 'alta'  ? 'bg-red-100 text-red-700'
+                            : p === 'media' ? 'bg-amber-100 text-amber-700'
+                            :                 'bg-sky-100 text-sky-700'
+                            : 'bg-white text-gray-400 hover:bg-gray-50'
+                        }`}
+                      >
+                        {p === 'alta' ? 'Alta' : p === 'media' ? 'Média' : 'Baixa'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Horário */}
+                  <input
+                    type="time"
+                    value={newTime}
+                    onChange={e => setNewTime(e.target.value)}
+                    className="flex-1 min-w-0 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-brand-400/60 transition-colors"
+                  />
+                </div>
+
+                {/* Empresa */}
+                <ClientSelect
+                  clients={clients}
+                  value={newClient}
+                  onChange={setNewClient}
+                  placeholder="Sem empresa vinculada"
+                />
+
+                {/* Ações */}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setShowForm(false); setNewTitle(''); setNewPrio('media'); setNewTime(''); setNewClient('') }}
+                    className="flex-1 py-2 rounded-xl text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!newTitle.trim() || saving}
+                    className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+                    style={{ background: 'rgba(243,146,0,0.15)', color: '#c97700', border: '1px solid rgba(243,146,0,0.35)' }}
+                  >
+                    {saving ? 'Salvando…' : 'Adicionar'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
+
+        {/* Footer */}
+        {!showForm && (
+          <div className="px-5 py-3 border-t border-gray-100 flex-shrink-0">
+            <button
+              onClick={onClose}
+              className="w-full py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{ background: 'rgba(243,146,0,0.12)', color: '#c97700', border: '1px solid rgba(243,146,0,0.28)' }}
+            >
+              Fechar
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function CalendarPage({ onOpenClient }) {
@@ -125,12 +678,17 @@ export default function CalendarPage({ onOpenClient }) {
     toDateStr(now.getFullYear(), now.getMonth(), now.getDate())
   )
 
+  const [dayModalDate, setDayModalDate] = useState(null)
+  const [detailTask,   setDetailTask]   = useState(null)
+
   const { tasks, addTask, deleteTask, updateTask } = useTasks()
   const { clients } = useClients()
+  const { users }   = useUsers()
   const { can }     = usePermissions()
   const canEdit     = can('calendar', 'edit')
   const canDelete   = can('calendar', 'delete')
   const clientMap   = Object.fromEntries(clients.map(c => [c.id, c]))
+  const userMap     = Object.fromEntries(users.map(u => [u.id, u]))
 
   // Ordem manual do backlog, persistida em localStorage
   const [backlogOrder, setBacklogOrder] = useState(() => {
@@ -318,7 +876,10 @@ export default function CalendarPage({ onOpenClient }) {
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        onClick={() => setSelectedDate(dateStr)}
+                        onClick={() => {
+                          setSelectedDate(dateStr)
+                          setDayModalDate(dateStr)
+                        }}
                         className={`rounded-lg p-2 text-left transition-all min-h-[72px] flex flex-col border cursor-pointer ${
                           snapshot.isDraggingOver
                             ? 'bg-brand-50 border-brand-400/60 shadow-md'
@@ -331,15 +892,33 @@ export default function CalendarPage({ onOpenClient }) {
                             : 'bg-white border-gray-200/60 hover:bg-gray-50 hover:border-gray-300'
                         }`}
                       >
-                        {/* Número + indicador vencida */}
-                        <div className="flex items-center justify-between mb-1.5 w-full">
-                          <span className={`text-xs font-bold ${
-                            isSelected ? 'text-brand-600' : isToday ? 'text-blue-600' : isWeekend ? 'text-gray-500' : 'text-gray-600'
-                          }`}>
-                            {day}
-                          </span>
-                          {hasOverdue && <AlertTriangle size={9} className="text-red-400 flex-shrink-0" />}
-                        </div>
+                        {/* Número + badge pendentes + indicador vencida */}
+                        {(() => {
+                          const pendingCount = dayTasks.filter(t => t.status !== 'concluida' && !t._overdue).length
+                          return (
+                            <div className="flex items-center justify-between mb-1.5 w-full">
+                              <span className={`text-xs font-bold ${
+                                isSelected ? 'text-brand-600' : isToday ? 'text-blue-600' : isWeekend ? 'text-gray-500' : 'text-gray-600'
+                              }`}>
+                                {day}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                {pendingCount > 0 && (
+                                  <span className={`text-[9px] font-bold px-1.5 py-px rounded-full leading-none ${
+                                    hasOverdue
+                                      ? 'bg-red-100 text-red-600'
+                                      : isSelected
+                                      ? 'bg-brand-500/20 text-brand-600'
+                                      : 'bg-gray-200 text-gray-500'
+                                  }`}>
+                                    {pendingCount}
+                                  </span>
+                                )}
+                                {hasOverdue && <AlertTriangle size={9} className="text-red-400 flex-shrink-0" />}
+                              </div>
+                            </div>
+                          )
+                        })()}
 
                         {/* Tags de tarefas */}
                         {dayTasks.length > 0 && (
@@ -524,7 +1103,10 @@ export default function CalendarPage({ onOpenClient }) {
                                       }`} />
                                     )}
 
-                                    <div className="flex-1 px-2.5 py-2.5 min-w-0">
+                                    <div
+                                      className="flex-1 px-2.5 py-2.5 min-w-0 cursor-pointer"
+                                      onClick={e => { if (!snapshot.isDragging) { e.stopPropagation(); setDetailTask(task) } }}
+                                    >
                                       <p className={`text-xs leading-snug mb-1.5 ${
                                         task.status === 'concluida' ? 'line-through text-gray-400' : 'text-gray-900 font-semibold'
                                       }`}>
@@ -541,12 +1123,15 @@ export default function CalendarPage({ onOpenClient }) {
                                         })()}
                                         {clientMap[task.clientId] && (
                                           <button
-                                            onClick={() => onOpenClient?.(clientMap[task.clientId])}
+                                            onClick={e => { e.stopPropagation(); onOpenClient?.(clientMap[task.clientId]) }}
                                             className="flex items-center gap-0.5 text-[10px] text-gray-500 hover:text-brand-400 transition-colors min-w-0"
                                           >
                                             <Building2 size={8} className="flex-shrink-0" />
                                             <span className="truncate max-w-[80px]">{clientMap[task.clientId].name}</span>
                                           </button>
+                                        )}
+                                        {task.description && (
+                                          <span className="text-[10px] text-gray-400 italic">tem descrição</span>
                                         )}
                                       </div>
                                     </div>
@@ -589,6 +1174,39 @@ export default function CalendarPage({ onOpenClient }) {
           </div>
         </div>
       </div>
+
+      {detailTask && (
+        <TaskDetailModal
+          task={detailTask}
+          clients={clients}
+          users={users}
+          clientMap={clientMap}
+          userMap={userMap}
+          onClose={() => setDetailTask(null)}
+          onToggle={task => { updateTask(task.id, { status: task.status === 'concluida' ? 'pendente' : 'concluida' }); setDetailTask(null) }}
+          onSave={(id, updates) => { updateTask(id, updates); setDetailTask(null) }}
+          onDelete={id => { deleteTask(id); setDetailTask(null) }}
+          canEdit={canEdit}
+          canDelete={canDelete}
+        />
+      )}
+
+      {dayModalDate && (
+        <DayTasksModal
+          date={dayModalDate}
+          tasks={getTasksForDate(dayModalDate)}
+          clients={clients}
+          clientMap={clientMap}
+          onClose={() => setDayModalDate(null)}
+          onToggleTask={(id, status) => updateTask(id, { status })}
+          onAddTask={addTask}
+          onDeleteTask={deleteTask}
+          onUpdateTask={(id, patch) => updateTask(id, patch)}
+          onOpenClient={onOpenClient}
+          canEdit={canEdit}
+          canDelete={canDelete}
+        />
+      )}
     </DragDropContext>
   )
 }

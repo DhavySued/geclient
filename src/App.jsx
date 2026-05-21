@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ClientsProvider, useClients } from './context/ClientsContext'
+import { useFiscalRecords } from './context/FiscalRecordsContext'
 import { TasksProvider } from './context/TasksContext'
 import { UsersProvider } from './context/UsersContext'
 import { SettingsProvider } from './context/SettingsContext'
@@ -14,6 +15,7 @@ import ClientDetailModal from './components/ClientDetailModal'
 import PasswordResetSidebar from './components/PasswordResetSidebar'
 import FiscalPage from './pages/FiscalPage'
 import CXPage from './pages/CXPage'
+import OnboardingPage from './pages/OnboardingPage'
 import CadastroPage from './pages/CadastroPage'
 import TasksPage from './pages/TasksPage'
 import CalendarPage from './pages/CalendarPage'
@@ -21,6 +23,8 @@ import UsersPage from './pages/UsersPage'
 import SettingsPage from './pages/SettingsPage'
 import LoginPage from './pages/LoginPage'
 import AuditPage from './pages/AuditPage'
+import DeptoPessoalPage from './pages/DeptoPessoalPage'
+import { DpRecordsProvider } from './context/DpRecordsContext'
 import { Loader2, AlertTriangle, ShieldOff } from 'lucide-react'
 
 function AccessDenied() {
@@ -39,23 +43,37 @@ function AppContent() {
   const [activePage, setActivePage] = useState(
     () => localStorage.getItem('geclient_active_page') ?? 'cadastro'
   )
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem('geclient_sidebar_collapsed') === 'true'
+  )
   const [selectedClient, setSelectedClient] = useState(null)
   const [selectedMonth, setSelectedMonth]   = useState(null)
+  const [selectedClientMode, setSelectedClientMode] = useState('default')
   const [showPasswordReset, setShowPasswordReset] = useState(false)
-  const { loading, error, refetch } = useClients()
+  const { loading, error, refetch }  = useClients()
+  const { loading: recordsLoading }  = useFiscalRecords()
   const { can } = usePermissions()
+
+  function toggleSidebar() {
+    setSidebarCollapsed(v => {
+      const next = !v
+      localStorage.setItem('geclient_sidebar_collapsed', next)
+      return next
+    })
+  }
 
   function navigate(page) {
     setActivePage(page)
     localStorage.setItem('geclient_active_page', page)
   }
 
-  function openClient(client, month = null) {
+  function openClient(client, month = null, mode = 'default') {
     setSelectedClient(client)
     setSelectedMonth(month)
+    setSelectedClientMode(mode)
   }
 
-  if (loading) {
+  if (loading || recordsLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3 text-gray-400">
@@ -86,24 +104,36 @@ function AppContent() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
-      <Sidebar activePage={activePage} onNavigate={navigate} onChangePassword={() => setShowPasswordReset(true)} />
-      <main className="flex-1 ml-64 flex flex-col">
+      <Sidebar
+        activePage={activePage}
+        onNavigate={navigate}
+        onChangePassword={() => setShowPasswordReset(true)}
+        collapsed={sidebarCollapsed}
+        onToggle={toggleSidebar}
+      />
+      <main
+        className="flex-1 flex flex-col transition-[margin] duration-200"
+        style={{ marginLeft: sidebarCollapsed ? '60px' : '256px' }}
+      >
         <div className="page-scroll flex-1 overflow-auto scrollbar-thin px-8 py-7 flex flex-col">
           {activePage === 'cadastro'  && (can('cadastro', 'view') ? <CadastroPage /> : <AccessDenied />)}
-          {activePage === 'fiscal'    && (can('fiscal',   'view') ? <FiscalPage    onOpenClient={openClient} /> : <AccessDenied />)}
-          {activePage === 'cx'        && (can('cx',       'view') ? <CXPage        onOpenClient={client => openClient(client)} /> : <AccessDenied />)}
+          {activePage === 'fiscal'    && (can('fiscal',   'view') ? <FiscalPage    onOpenClient={(c, month) => openClient(c, month, 'fiscal')} /> : <AccessDenied />)}
+          {activePage === 'cx'         && (can('cx',         'view') ? <CXPage         onOpenClient={client => openClient(client, null, 'cx')} /> : <AccessDenied />)}
+          {activePage === 'onboarding' && (can('onboarding', 'view') ? <OnboardingPage onOpenClient={client => openClient(client, null, 'onboarding')} /> : <AccessDenied />)}
           {activePage === 'tasks'     && (can('tasks',    'view') ? <TasksPage     onOpenClient={client => openClient(client)} /> : <AccessDenied />)}
           {activePage === 'calendar'  && (can('calendar', 'view') ? <CalendarPage  onOpenClient={client => openClient(client)} /> : <AccessDenied />)}
           {activePage === 'users'     && (can('users',    'view') ? <UsersPage /> : <AccessDenied />)}
           {activePage === 'audit'     && (can('audit',    'view') ? <AuditPage /> : <AccessDenied />)}
-          {activePage === 'settings'  && (can('settings', 'view') ? <SettingsPage /> : <AccessDenied />)}
+          {activePage === 'settings'     && (can('settings',      'view') ? <SettingsPage /> : <AccessDenied />)}
+          {activePage === 'depto-pessoal' && (can('depto-pessoal', 'view') ? <DeptoPessoalPage /> : <AccessDenied />)}
         </div>
       </main>
 
       <ClientDetailModal
         client={selectedClient}
         selectedMonth={selectedMonth}
-        onClose={() => { setSelectedClient(null); setSelectedMonth(null) }}
+        mode={selectedClientMode}
+        onClose={() => { setSelectedClient(null); setSelectedMonth(null); setSelectedClientMode('default') }}
       />
 
       <PasswordResetSidebar
@@ -124,11 +154,13 @@ function AuthGate() {
           <FiscalConfigProvider>
             <FiscalRecordsProvider>
               <ClientsProvider>
-                <UsersProvider>
-                  <TasksProvider>
-                    <AppContent />
-                  </TasksProvider>
-                </UsersProvider>
+                <DpRecordsProvider>
+                  <UsersProvider>
+                    <TasksProvider>
+                      <AppContent />
+                    </TasksProvider>
+                  </UsersProvider>
+                </DpRecordsProvider>
               </ClientsProvider>
             </FiscalRecordsProvider>
           </FiscalConfigProvider>

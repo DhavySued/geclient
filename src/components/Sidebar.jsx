@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BarChart3, Building2, CheckSquare, Calendar, UserCog, Settings, TrendingUp, LogOut, ClipboardList, KeyRound } from 'lucide-react'
+import { BarChart3, Building2, CheckSquare, Calendar, UserCog, Settings, TrendingUp, LogOut, ClipboardList, KeyRound, UserPlus, ChevronLeft, ChevronRight, Users } from 'lucide-react'
 import logoSidebar from '../assets/logo-sidebar.png'
 import { useTasks } from '../context/TasksContext'
 import { useAuth } from '../context/AuthContext'
@@ -12,7 +12,9 @@ function getInitials(name = '') {
 const kanbans = [
   { id: 'cadastro', icon: Building2,  label: 'Empresas',       description: 'Cadastro e gestão' },
   { id: 'fiscal',   icon: BarChart3,  label: 'Gestão Fiscal',  description: 'Situação tributária' },
-  { id: 'cx',       icon: TrendingUp, label: 'Experiência CX', description: 'Health Score' },
+  { id: 'cx',          icon: TrendingUp, label: 'NPS',        description: 'Health Score' },
+  { id: 'onboarding',   icon: UserPlus,   label: 'Onboarding',        description: 'Integração de clientes' },
+  { id: 'depto-pessoal', icon: Users,    label: 'Depto. Pessoal',    description: 'Checklist mensal de DP' },
 ]
 
 const tools = [
@@ -32,7 +34,7 @@ function SectionLabel({ children }) {
   )
 }
 
-function NavItem({ item, active, onNavigate, badge }) {
+function NavItem({ item, active, onNavigate, badge, collapsed }) {
   const Icon = item.icon
   const [hovered, setHovered] = useState(false)
 
@@ -49,6 +51,34 @@ function NavItem({ item, active, onNavigate, badge }) {
     return { background: 'transparent', border: '1px solid transparent' }
   }
 
+  if (collapsed) {
+    return (
+      <button
+        onClick={() => onNavigate(item.id)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        title={item.label}
+        className="w-full flex items-center justify-center py-2.5 rounded-xl transition-all duration-150 relative"
+        style={getStyle()}
+      >
+        {active && (
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full"
+            style={{ background: '#f39200', boxShadow: '0 0 6px rgba(243,146,0,0.7)' }} />
+        )}
+        <Icon
+          size={17}
+          style={{ color: active ? '#f39200' : hovered ? 'rgba(255,255,255,0.90)' : 'rgba(255,255,255,0.55)' }}
+        />
+        {badge > 0 && (
+          <span className="absolute top-0.5 right-0.5 min-w-[14px] h-[14px] rounded-full text-[9px] font-bold flex items-center justify-center px-0.5"
+            style={{ background: 'linear-gradient(135deg, #f39200, #d97d00)', color: '#ffffff' }}>
+            {badge > 9 ? '9+' : badge}
+          </span>
+        )}
+      </button>
+    )
+  }
+
   return (
     <button
       onClick={() => onNavigate(item.id)}
@@ -62,17 +92,17 @@ function NavItem({ item, active, onNavigate, badge }) {
           style={{ background: '#f39200', boxShadow: '0 0 6px rgba(243,146,0,0.7)' }} />
       )}
       <Icon
-        size={16}
+        size={17}
         className="flex-shrink-0 transition-colors"
-        style={{ color: active ? '#f39200' : hovered ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.35)' }}
+        style={{ color: active ? '#f39200' : hovered ? 'rgba(255,255,255,0.90)' : 'rgba(255,255,255,0.55)' }}
       />
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-medium leading-tight tracking-tight transition-colors"
-           style={{ color: active ? '#ffffff' : hovered ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.65)' }}>
+        <p className="text-[14px] font-semibold leading-tight tracking-tight transition-colors"
+           style={{ color: active ? '#ffffff' : hovered ? '#ffffff' : 'rgba(255,255,255,0.88)' }}>
           {item.label}
         </p>
         <p className="text-[11px] truncate mt-0.5"
-          style={{ color: active ? 'rgba(255,255,255,0.50)' : hovered ? 'rgba(255,255,255,0.40)' : 'rgba(255,255,255,0.22)' }}>
+          style={{ color: active ? 'rgba(255,255,255,0.55)' : hovered ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.35)' }}>
           {item.description}
         </p>
       </div>
@@ -86,7 +116,7 @@ function NavItem({ item, active, onNavigate, badge }) {
   )
 }
 
-export default function Sidebar({ activePage, onNavigate, onChangePassword }) {
+export default function Sidebar({ activePage, onNavigate, onChangePassword, collapsed, onToggle }) {
   const [logoError, setLogoError] = useState(false)
   const { tasks } = useTasks()
   const { currentUser, logout } = useAuth()
@@ -97,38 +127,78 @@ export default function Sidebar({ activePage, onNavigate, onChangePassword }) {
   const visibleTools   = tools.filter(item => can(item.id, 'view'))
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 flex flex-col z-20"
+    <aside
+      className="fixed left-0 top-0 h-screen flex flex-col z-20 transition-[width] duration-200"
       style={{
+        width: collapsed ? '60px' : '256px',
         background: 'linear-gradient(180deg, #00236a 0%, #001a52 100%)',
         borderRight: '1px solid rgba(255,255,255,0.08)',
       }}>
 
-      {/* Logo */}
-      <div className="px-5 py-4 flex-shrink-0 flex items-center gap-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.10)' }}>
-        {!logoError && (
+      {/* Logo + toggle */}
+      <div
+        className="flex-shrink-0 flex items-center px-3 py-4"
+        style={{
+          borderBottom: '1px solid rgba(255,255,255,0.10)',
+          justifyContent: collapsed ? 'center' : 'space-between',
+          gap: collapsed ? 0 : '8px',
+        }}
+      >
+        {!collapsed && (
+          <div className="flex items-center gap-3 min-w-0">
+            {!logoError && (
+              <img
+                src={logoSidebar}
+                alt="GeClient"
+                width={36}
+                height={36}
+                className="object-cover flex-shrink-0"
+                style={{ borderRadius: '8px' }}
+                onError={() => setLogoError(true)}
+              />
+            )}
+            <span className="text-[17px] font-bold tracking-tight truncate" style={{ color: '#ffffff' }}>
+              GeClient
+            </span>
+          </div>
+        )}
+
+        {collapsed && !logoError && (
           <img
             src={logoSidebar}
             alt="GeClient"
-            width={36}
-            height={36}
-            className="object-cover flex-shrink-0"
-            style={{ borderRadius: '8px' }}
+            width={32}
+            height={32}
+            className="object-cover"
+            style={{ borderRadius: '7px' }}
             onError={() => setLogoError(true)}
           />
         )}
-        <span className="text-[17px] font-bold tracking-tight" style={{ color: '#ffffff' }}>
-          GeClient
-        </span>
+
+        <button
+          onClick={onToggle}
+          title={collapsed ? 'Expandir menu' : 'Recolher menu'}
+          className="flex-shrink-0 p-1.5 rounded-lg transition-colors"
+          style={{ color: 'rgba(255,255,255,0.35)' }}
+          onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.75)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.35)'}
+        >
+          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 flex flex-col overflow-y-auto scrollbar-thin gap-0.5">
-        {visibleKanbans.length > 0 && <SectionLabel>Módulos</SectionLabel>}
+      <nav className="flex-1 px-2 py-3 flex flex-col overflow-y-auto scrollbar-thin gap-0.5">
+        {!collapsed && visibleKanbans.length > 0 && <SectionLabel>Módulos</SectionLabel>}
+        {collapsed && visibleKanbans.length > 0 && <div className="mt-2" />}
         {visibleKanbans.map(item => (
-          <NavItem key={item.id} item={item} active={activePage === item.id} onNavigate={onNavigate} />
+          <NavItem key={item.id} item={item} active={activePage === item.id} onNavigate={onNavigate} collapsed={collapsed} />
         ))}
 
-        {visibleTools.length > 0 && <SectionLabel>Produtividade</SectionLabel>}
+        {!collapsed && visibleTools.length > 0 && <SectionLabel>Produtividade</SectionLabel>}
+        {collapsed && visibleTools.length > 0 && (
+          <div className="my-2 mx-1 border-t" style={{ borderColor: 'rgba(255,255,255,0.10)' }} />
+        )}
         {visibleTools.map(item => (
           <NavItem
             key={item.id}
@@ -136,48 +206,71 @@ export default function Sidebar({ activePage, onNavigate, onChangePassword }) {
             active={activePage === item.id}
             onNavigate={onNavigate}
             badge={item.id === 'tasks' ? pendingTaskCount : 0}
+            collapsed={collapsed}
           />
         ))}
       </nav>
 
-      {/* Footer — usuário logado */}
-      <div className="px-3 py-3 flex-shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+      {/* Footer */}
+      <div className="px-2 py-3 flex-shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
         {currentUser && (
-          <div className="flex items-center gap-2.5 px-2 py-2 rounded-xl group"
-            style={{ background: 'rgba(255,255,255,0.04)' }}>
-            <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-gray-900"
-              style={{ background: 'linear-gradient(135deg, #f39200, #d97d00)' }}>
-              {getInitials(currentUser.name)}
+          collapsed ? (
+            <div className="flex flex-col items-center gap-2">
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-gray-900"
+                style={{ background: 'linear-gradient(135deg, #f39200, #d97d00)' }}
+                title={currentUser.name}
+              >
+                {getInitials(currentUser.name)}
+              </div>
+              <button
+                onClick={logout}
+                title="Sair"
+                className="p-1.5 rounded-lg transition-colors"
+                style={{ color: 'rgba(255,255,255,0.30)' }}
+                onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.30)'}
+              >
+                <LogOut size={14} />
+              </button>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-medium truncate" style={{ color: 'rgba(255,255,255,0.75)' }}>
-                {currentUser.name}
-              </p>
-              <p className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.28)' }}>
-                {currentUser.role}
-              </p>
+          ) : (
+            <div className="flex items-center gap-2.5 px-2 py-2 rounded-xl"
+              style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-gray-900"
+                style={{ background: 'linear-gradient(135deg, #f39200, #d97d00)' }}>
+                {getInitials(currentUser.name)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-medium truncate" style={{ color: 'rgba(255,255,255,0.75)' }}>
+                  {currentUser.name}
+                </p>
+                <p className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.28)' }}>
+                  {currentUser.role}
+                </p>
+              </div>
+              <button
+                onClick={onChangePassword}
+                title="Alterar senha"
+                className="p-1.5 rounded-lg transition-colors flex-shrink-0"
+                style={{ color: 'rgba(255,255,255,0.25)' }}
+                onMouseEnter={e => e.currentTarget.style.color = '#f39200'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.25)'}
+              >
+                <KeyRound size={14} />
+              </button>
+              <button
+                onClick={logout}
+                title="Sair"
+                className="p-1.5 rounded-lg transition-colors flex-shrink-0"
+                style={{ color: 'rgba(255,255,255,0.25)' }}
+                onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.25)'}
+              >
+                <LogOut size={14} />
+              </button>
             </div>
-            <button
-              onClick={onChangePassword}
-              title="Alterar senha"
-              className="p-1.5 rounded-lg transition-colors flex-shrink-0"
-              style={{ color: 'rgba(255,255,255,0.25)' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#f39200'}
-              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.25)'}
-            >
-              <KeyRound size={14} />
-            </button>
-            <button
-              onClick={logout}
-              title="Sair"
-              className="p-1.5 rounded-lg transition-colors flex-shrink-0"
-              style={{ color: 'rgba(255,255,255,0.25)' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
-              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.25)'}
-            >
-              <LogOut size={14} />
-            </button>
-          </div>
+          )
         )}
       </div>
     </aside>

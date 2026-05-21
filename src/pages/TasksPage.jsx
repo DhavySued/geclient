@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CheckSquare, Flag, Search, Plus, X, List, LayoutGrid, Repeat, Clock, CheckCircle2 } from 'lucide-react'
+import ClientSelect from '../components/ClientSelect'
 import DatePicker from '../components/DatePicker'
 import { useTasks } from '../context/TasksContext'
 import { useClients } from '../context/ClientsContext'
@@ -227,14 +228,11 @@ export default function TasksPage({ onOpenClient }) {
                 {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
             )}
-            <select
+            <ClientSelect
+              clients={clients}
               value={clientId}
-              onChange={e => setClientId(e.target.value)}
-              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-brand-500/50"
-            >
-              <option value="">Cliente (opcional)</option>
-              {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+              onChange={setClientId}
+            />
           </div>
           {/* Repeat monthly toggle */}
           <label className="flex items-center gap-2 cursor-pointer select-none">

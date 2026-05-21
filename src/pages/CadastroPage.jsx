@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import {
   Building2, Plus, Upload, Search, Pencil, Trash2,
   Crown, Star, CircleDot, ChevronUp, ChevronDown,
-  RotateCcw, X, CheckSquare, CheckCircle2, AlertCircle, PowerOff, Power,
+  RotateCcw, X, CheckSquare, CheckCircle2, AlertCircle, PowerOff, Power, UserPlus,
 } from 'lucide-react'
 import { useClients } from '../context/ClientsContext'
 import { useFiscalRecords } from '../context/FiscalRecordsContext'
@@ -61,7 +61,8 @@ export default function CadastroPage() {
       if (status === 'sem_pendencia') regular++
       else if (status === 'com_pendencia' || status === 'comunicado_cliente' || status === 'em_regularizacao') irregular++
     }
-    return { total: clients.length, regular, irregular }
+    const onboarding = clients.filter(c => c.mapOnboarding === true && !c.onboardingFinished).length
+    return { total: clients.length, regular, irregular, onboarding }
   }, [clients, getClientHistory])
 
   const filtered = useMemo(() => {
@@ -109,29 +110,30 @@ export default function CadastroPage() {
   }
 
   async function handleSave(data) {
+    const clientSnapshot = editingClient
+    setEditingClient(undefined)
     try {
       const now          = new Date()
       const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
-      if (editingClient?.id) {
-        await updateClient(editingClient.id, data)
+      if (clientSnapshot?.id) {
+        await updateClient(clientSnapshot.id, data)
 
-        // Recalcula status fiscal do mês atual — 100% → sem_pendencia, caso contrário → com_pendencia
         try {
-          const updatedClient = { id: editingClient.id, ...editingClient, ...data }
-          const record        = getRecord(editingClient.id, currentMonth)
+          const updatedClient = { id: clientSnapshot.id, ...clientSnapshot, ...data }
+          const record        = getRecord(clientSnapshot.id, currentMonth)
           const applicable    = getApplicableItems(updatedClient, fiscalItems, regimeItems, conditionItems, tipoItems)
           if (applicable.length > 0) {
-            const score      = calcFiscalScore(record?.checks ?? {}, applicable)
-            const newStatus  = score === 100 ? 'sem_pendencia' : 'com_pendencia'
+            const score     = calcFiscalScore(record?.checks ?? {}, applicable)
+            const newStatus = score === 100 ? 'sem_pendencia' : 'com_pendencia'
             if (record?.status !== newStatus) {
-              await upsertRecord(editingClient.id, currentMonth, {
+              await upsertRecord(clientSnapshot.id, currentMonth, {
                 status:       newStatus,
                 checks:       record?.checks ?? {},
                 pendingTaxes: record?.pendingTaxes ?? [],
                 note:         record?.note ?? '',
               })
-              await updateClient(editingClient.id, { fiscalStatus: newStatus })
+              await updateClient(clientSnapshot.id, { fiscalStatus: newStatus })
             }
           }
         } catch (scoreErr) {
@@ -140,7 +142,6 @@ export default function CadastroPage() {
       } else {
         const created = await addClient(data)
 
-        // Nova empresa: começa em sem_pendencia (100%) ou com_pendencia (<100%)
         try {
           const applicable = getApplicableItems(
             { ...data, id: created.id },
@@ -155,7 +156,6 @@ export default function CadastroPage() {
           console.warn('[handleSave] new client status skipped:', scoreErr)
         }
       }
-      setEditingClient(undefined)
     } catch (err) {
       alert('Erro ao salvar: ' + err.message)
     }
@@ -220,7 +220,7 @@ export default function CadastroPage() {
     }
   }
 
-  const SortIcon = ({ col }) => {
+const SortIcon = ({ col }) => {
     if (sortKey !== col) return <ChevronUp size={12} className="text-gray-600" />
     return (sortDirs[col] ?? 'asc') === 'asc'
       ? <ChevronUp size={12} className="text-brand-400" />
@@ -266,7 +266,7 @@ export default function CadastroPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-4 gap-4 mb-6">
         <div className="flex items-center gap-4 px-5 py-4 rounded-2xl"
           style={{ background: '#F8F9FB', border: '1px solid rgba(0,0,0,0.08)' }}>
           <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -300,6 +300,18 @@ export default function CadastroPage() {
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#FCA5A5' }}>Irregulares</p>
             <p className="text-2xl font-bold leading-none mt-0.5" style={{ color: '#DC2626' }}>{summaryStats.irregular}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 px-5 py-4 rounded-2xl"
+          style={{ background: '#EFF6FF', border: '1px solid rgba(59,130,246,0.20)' }}>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'rgba(59,130,246,0.10)', border: '1px solid rgba(59,130,246,0.22)' }}>
+            <UserPlus size={18} style={{ color: '#2563EB' }} />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#93C5FD' }}>Onboarding</p>
+            <p className="text-2xl font-bold leading-none mt-0.5" style={{ color: '#2563EB' }}>{summaryStats.onboarding}</p>
           </div>
         </div>
       </div>
@@ -424,13 +436,14 @@ export default function CadastroPage() {
               return (
                 <tr
                   key={client.id}
-                  className="group transition-colors duration-100"
+                  className="group transition-colors duration-100 cursor-pointer"
                   style={{
                     borderBottom: i < filtered.length - 1 ? '1px solid rgba(0,0,0,0.05)' : 'none',
-                    background: isSelected ? 'rgba(243,146,0,0.06)' : 'transparent',
+                    background: isSelected ? 'rgba(243,146,0,0.06)' : i % 2 === 0 ? 'white' : 'rgba(0,0,0,0.018)',
                   }}
-                  onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'rgba(0,0,0,0.025)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = isSelected ? 'rgba(243,146,0,0.06)' : 'transparent' }}
+                  onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = isSelected ? 'rgba(243,146,0,0.06)' : i % 2 === 0 ? 'white' : 'rgba(0,0,0,0.018)' }}
+                  onDoubleClick={() => { if (canEdit && !showInactive) setEditingClient(client) }}
                 >
                   {/* Checkbox */}
                   <td className="pl-5 pr-2 py-4 w-10">

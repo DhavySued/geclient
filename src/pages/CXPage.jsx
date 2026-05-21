@@ -3,7 +3,7 @@ import { DragDropContext } from '@hello-pangea/dnd'
 import { Users, AlertOctagon, Settings2, ArrowDownAZ } from 'lucide-react'
 import { useCXKanban } from '../hooks/useKanban'
 import { useKanbanSettings } from '../hooks/useKanbanSettings'
-import { useSettings } from '../context/SettingsContext'
+
 import { usePermissions } from '../hooks/usePermissions'
 import { useDragScroll } from '../hooks/useDragScroll'
 import KanbanColumn, { KanbanColumnHeader } from '../components/KanbanColumn'
@@ -60,16 +60,26 @@ export default function CXPage({ onOpenClient }) {
   const [showSettings, setShowSettings] = useState(false)
 
   const { columns: kanbanColumns, moveClient } = useCXKanban(levelFilter)
-  const { columns, updateLabel, reorder } = useKanbanSettings('cx', DEFAULT_COLUMNS)
+  const { columns, updateLabel, updateDescription, reorder } = useKanbanSettings('cx', DEFAULT_COLUMNS)
   const { can } = usePermissions()
   const canEdit = can('cx', 'edit')
   const { onDragScrollStart, onDragScrollEnd } = useDragScroll()
 
   // ── Ordem local (igual ao FiscalPage) ────────────────────────────────────
-  const [localCols, setLocalCols] = useState(null)
+  const [localCols, setLocalCols] = useState(() => {
+    const init = {}
+    columns.forEach(col => {
+      init[col.id] = (kanbanColumns[col.id]?.clients ?? []).map(c => c.id)
+    })
+    return init
+  })
   const isDraggingRef = useRef(false)
+  const filterResetMountedRef = useRef(false)
 
-  useEffect(() => { setLocalCols(null) }, [levelFilter])
+  useEffect(() => {
+    if (!filterResetMountedRef.current) { filterResetMountedRef.current = true; return }
+    setLocalCols(null)
+  }, [levelFilter])
 
   useEffect(() => {
     if (isDraggingRef.current) return
@@ -147,9 +157,6 @@ export default function CXPage({ onOpenClient }) {
 
   const totalVisible = columns.reduce((sum, col) => sum + getColClients(col.id).length, 0)
 
-  const { settings } = useSettings()
-  const stickyHeaders = settings.stickyKanbanHeaders
-
   function onDragStart() {
     isDraggingRef.current = true
     onDragScrollStart()
@@ -171,15 +178,15 @@ export default function CXPage({ onOpenClient }) {
     .filter(c => c.level === 'Premium').length
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 min-w-[520px]">
       {/* Page Header */}
-      <div className="flex items-start justify-between gap-4 mb-5">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Users size={20} className="text-brand-400" />
-            <h1 className="text-xl font-bold text-gray-900">Customer Experience</h1>
+            <h1 className="text-xl font-bold text-gray-900">Kanban NPS</h1>
           </div>
-          <p className="text-sm text-gray-500">Health Score e relacionamento com o cliente.</p>
+          <p className="text-sm text-gray-500">Acompanhamento de satisfação — empresas com onboarding concluído.</p>
         </div>
         <button
           onClick={() => setShowSettings(true)}
@@ -229,15 +236,13 @@ export default function CXPage({ onOpenClient }) {
 
       {/* Kanban Board — scroll area unificada (h + v) */}
       <div className="kanban-scroll-area flex-1 overflow-auto scrollbar-thin min-h-0">
-        <div className="min-h-full flex flex-col pb-4">
-          {stickyHeaders && (
-            <div className="sticky top-0 z-20 bg-gray-50 pb-3 flex gap-4">
-              {columns.map(col => {
-                const colClients = getColClients(col.id)
-                return <KanbanColumnHeader key={col.id} column={{ id: col.id, label: col.label, description: col.description, clients: colClients }} />
-              })}
-            </div>
-          )}
+        <div className="min-h-full min-w-max flex flex-col pb-4">
+          <div className="sticky top-0 z-20 bg-gray-50 pb-3 flex gap-4">
+            {columns.map(col => {
+              const colClients = getColClients(col.id)
+              return <KanbanColumnHeader key={col.id} column={{ id: col.id, label: col.label, description: col.description, clients: colClients }} />
+            })}
+          </div>
           <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
             <div className="kanban-board flex gap-4 flex-1">
               {columns.map(col => {
@@ -245,7 +250,7 @@ export default function CXPage({ onOpenClient }) {
                 return (
                   <KanbanColumn
                     key={col.id}
-                    showHeader={!stickyHeaders}
+                    showHeader={false}
                     column={{ id: col.id, label: col.label, description: col.description, clients: colClients }}
                     colorConfig={col}
                   >
@@ -264,9 +269,9 @@ export default function CXPage({ onOpenClient }) {
         <KanbanSettingsModal
           columns={columns}
           onRename={updateLabel}
+          onRenameDescription={updateDescription}
           onReorder={reorder}
           onClose={() => setShowSettings(false)}
-          // CX não suporta colunas customizadas (status é campo direto no client)
         />
       )}
     </div>

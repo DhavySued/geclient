@@ -45,10 +45,16 @@ export function ClientsProvider({ children }) {
   // ── Add ──────────────────────────────────────────────────────────────────
   async function addClient(data) {
     const payload = toDb({
-      fiscalStatus:    'sem_consulta',
-      hasEmployees:    false,
-      hasProLabore:    false,
-      cxStatus:        'cliente_novo',
+      fiscalStatus:      'sem_consulta',
+      hasEmployees:      false,
+      hasProLabore:      false,
+      cxStatus:          'cliente_novo',
+      mapFiscal:         true,
+      mapNps:            true,
+      mapOnboarding:     false,
+      onboardingStatus:  'sem_inicio',
+      onboardingFinished:   false,
+      onboardingFinishedAt: null,
       scoreFiscal:     0,
       scoreCx:         0,
       lastInteraction: new Date().toISOString().slice(0, 10),
@@ -81,13 +87,26 @@ export function ClientsProvider({ children }) {
       hasEmployees: 'has_employees', hasProLabore: 'has_pro_labore',
       emExclusaoSimples: 'em_exclusao_simples',
       active: 'active',
-      cxStatus: 'cx_status', scoreFiscal: 'score_fiscal', scoreCx: 'score_cx',
+      cxStatus: 'cx_status', onboardingStatus: 'onboarding_status',
+      mapFiscal: 'map_fiscal', mapNps: 'map_nps', mapOnboarding: 'map_onboarding',
+      onboardingStatusSince: 'onboarding_status_since',
+      onboardingHistory: 'onboarding_history',
+      onboardingFinished: 'onboarding_finished', onboardingFinishedAt: 'onboarding_finished_at',
+      scoreFiscal: 'score_fiscal', scoreCx: 'score_cx',
       pendingTaxes: 'pending_taxes',
       lastInteraction: 'last_interaction',
       notes: 'notes',
+      entryDate: 'entry_date',
+      dpServices:        'dp_services',
+      dpServicesHistory: 'dp_services_history',
     }
     for (const [camel, snake] of Object.entries(map)) {
-      if (camel in updates) dbUpdates[snake] = updates[camel]
+      if (camel in updates) {
+        const val = updates[camel]
+        dbUpdates[snake] = (snake === 'entry_date' || snake === 'onboarding_finished_at' || snake === 'onboarding_status_since')
+          ? (val || null)
+          : val === undefined ? null : val
+      }
     }
     // Optimistic update — UI reage imediatamente
     const existing = _allClients.find(c => c.id === id)

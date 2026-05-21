@@ -1,4 +1,4 @@
-import { Settings, Calendar, BarChart3, Scale, Users, Briefcase, Store, Plus, Pencil, Trash2, Check, X, Loader2, Lock, Columns } from 'lucide-react'
+import { Settings, Calendar, BarChart3, Scale, Users, Briefcase, Store, Plus, Pencil, Trash2, Check, X, Loader2, Lock } from 'lucide-react'
 import { useState } from 'react'
 import { useSettings } from '../context/SettingsContext'
 import { useFiscalItemsCtx } from '../context/FiscalItemsContext'
@@ -267,21 +267,6 @@ export default function SettingsPage() {
           onChange={val => update({ showUndatedInCalendar: val })}
           label="Exibir atividades sem data no painel lateral"
           description="Mostra no calendário as tarefas sem data de vencimento definida."
-          disabled={!canEdit}
-        />
-      </section>
-
-      {/* Kanban */}
-      <section className="bg-white border border-gray-100 rounded-2xl p-6 space-y-5">
-        <div className="flex items-center gap-2">
-          <Columns size={16} className="text-brand-400" />
-          <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Kanban</h2>
-        </div>
-        <Toggle
-          checked={settings.stickyKanbanHeaders}
-          onChange={val => update({ stickyKanbanHeaders: val })}
-          label="Travar cabeçalhos das colunas"
-          description="Os títulos das colunas ficam visíveis mesmo ao rolar os cards para baixo."
           disabled={!canEdit}
         />
       </section>

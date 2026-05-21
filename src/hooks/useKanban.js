@@ -17,7 +17,7 @@ export function useFiscalKanban(levelFilter, selectedMonth, allStatusIds, extraF
   const { records, getRecord, upsertRecord } = useFiscalRecords()
 
   const filtered = useMemo(() => {
-    let list = clients
+    let list = clients.filter(c => c.mapFiscal !== false)
     if (levelFilter  !== 'all') list = list.filter(c => c.level  === levelFilter)
     if (regimeFilter !== 'all') list = list.filter(c => c.regime === regimeFilter)
     if (tipoFilter   !== 'all') list = list.filter(c => c.tipo   === tipoFilter)
@@ -25,8 +25,10 @@ export function useFiscalKanban(levelFilter, selectedMonth, allStatusIds, extraF
       const q = nameSearch.trim().toLowerCase()
       list = list.filter(c => c.name.toLowerCase().includes(q))
     }
+    // Oculta empresa se o mês selecionado for anterior à data de entrada no escritório
+    list = list.filter(c => !c.entryDate || c.entryDate.slice(0, 7) <= selectedMonth)
     return list
-  }, [clients, levelFilter, regimeFilter, tipoFilter, nameSearch])
+  }, [clients, levelFilter, regimeFilter, tipoFilter, nameSearch, selectedMonth])
 
   const columns = useMemo(() => {
     function getStatus(client) {
@@ -59,12 +61,59 @@ export function useFiscalKanban(levelFilter, selectedMonth, allStatusIds, extraF
   return { columns, moveClient, markAllOk }
 }
 
-export function useCXKanban(levelFilter) {
+const DEFAULT_ONBOARDING_STATUS_IDS = [
+  'sem_inicio', 'em_contato', 'aguardando_docs', 'em_configuracao', 'concluido',
+]
+
+export function useOnboardingKanban(levelFilter, allStatusIds) {
+  const statusIds = allStatusIds ?? DEFAULT_ONBOARDING_STATUS_IDS
   const { clients, updateClient } = useClients()
 
   const filtered = useMemo(() => {
-    if (levelFilter === 'all') return clients
-    return clients.filter(c => c.level === levelFilter)
+    let list = clients.filter(c => c.mapOnboarding === true && !c.onboardingFinished)
+    if (levelFilter !== 'all') list = list.filter(c => c.level === levelFilter)
+    return list
+  }, [clients, levelFilter])
+
+  const columns = useMemo(() =>
+    Object.fromEntries(
+      statusIds.map(id => [
+        id,
+        { id, label: id, clients: filtered.filter(c => (c.onboardingStatus ?? 'sem_inicio') === id) },
+      ])
+    )
+  , [filtered, statusIds]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function moveClient(clientId, targetStatus) {
+    const client = clients.find(c => c.id === clientId)
+    const now    = new Date().toISOString()
+    const prev   = client?.onboardingHistory ?? []
+    const newHistory = [...prev, { stage: targetStatus, enteredAt: now, note: '' }]
+    updateClient(clientId, {
+      onboardingStatus:      targetStatus,
+      onboardingStatusSince: now,
+      onboardingHistory:     newHistory,
+    })
+  }
+
+  return { columns, moveClient }
+}
+
+export function useCXKanban(levelFilter) {
+  const { clients, updateClient } = useClients()
+
+  // Empresas cadastradas antes desta data seguem a regra antiga (mapNps basta).
+  // A partir desta data, exige onboarding concluído para entrar no NPS.
+  const NPS_CUTOFF = '2026-05-14'
+
+  const filtered = useMemo(() => {
+    let list = clients.filter(c => {
+      if (c.mapNps === false) return false
+      const isLegacy = !c.createdAt || c.createdAt.slice(0, 10) < NPS_CUTOFF
+      return isLegacy || c.onboardingFinished === true
+    })
+    if (levelFilter !== 'all') list = list.filter(c => c.level === levelFilter)
+    return list
   }, [clients, levelFilter])
 
   const columns = useMemo(() => ({

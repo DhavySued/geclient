@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { DragDropContext } from '@hello-pangea/dnd'
-import { BarChart3, Settings2, ChevronLeft, ChevronRight, AlertTriangle, Search, X, ArrowDownAZ } from 'lucide-react'
+import { BarChart3, Settings2, ChevronLeft, ChevronRight, AlertTriangle, Search, X, ArrowDownAZ, Monitor } from 'lucide-react'
 import { useFiscalKanban } from '../hooks/useKanban'
 import { useKanbanSettings } from '../hooks/useKanbanSettings'
-import { useSettings } from '../context/SettingsContext'
+
 import { usePermissions } from '../hooks/usePermissions'
 import KanbanColumn, { KanbanColumnHeader } from '../components/KanbanColumn'
 import KanbanSettingsModal from '../components/KanbanSettingsModal'
@@ -14,6 +14,7 @@ import { useDragScroll } from '../hooks/useDragScroll'
 import { calcFiscalScore, getApplicableItems } from '../hooks/useFiscalItems'
 import { useFiscalItemsCtx } from '../context/FiscalItemsContext'
 import { useFiscalConfig } from '../context/FiscalConfigContext'
+import FiscalPresentationModal from '../components/FiscalPresentationModal'
 
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -86,12 +87,10 @@ export default function FiscalPage({ onOpenClient }) {
   const [sortAlpha, setSortAlpha]       = useState(false)
   const [exclusaoFilter, setExclusaoFilter] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showPresentation, setShowPresentation] = useState(false)
   const { can } = usePermissions()
   const canEdit = can('fiscal', 'edit')
   const { onDragScrollStart, onDragScrollEnd } = useDragScroll()
-  const { settings } = useSettings()
-  const stickyHeaders = settings.stickyKanbanHeaders
-
   const selectedMonth   = toMonthString(year, month)
   const isCurrentMonth  = selectedMonth === toMonthString(now.getFullYear(), now.getMonth())
 
@@ -104,7 +103,7 @@ export default function FiscalPage({ onOpenClient }) {
     else setMonth(m => m + 1)
   }
 
-  const { columns, updateLabel, reorder, addColumn, removeColumn } = useKanbanSettings('fiscal', DEFAULT_COLUMNS)
+  const { columns, updateLabel, updateDescription, reorder, addColumn, removeColumn } = useKanbanSettings('fiscal', DEFAULT_COLUMNS)
 
   const allStatusIds = useMemo(() => columns.map(c => c.id), [columns])
 
@@ -129,15 +128,29 @@ export default function FiscalPage({ onOpenClient }) {
 
   // ── localCols: { colId: clientId[] } | null ──────────────────────────────
   // Stores only IDs so the drag order is decoupled from server data.
-  // null = not yet initialised (loading or after month/filter reset).
-  const [localCols, setLocalCols] = useState(null)
+  // Inicialização lazy: se records já carregaram (navegação de volta), popula
+  // imediatamente sem esperar o sync effect — elimina o ciclo null→init.
+  const [localCols, setLocalCols] = useState(() => {
+    const init = {}
+    columns.forEach(col => {
+      init[col.id] = (kanbanColumns[col.id]?.clients ?? []).map(c => c.id)
+    })
+    return init
+  })
 
   // isDraggingRef: prevents the sync effect from running mid-drag, which
   // would cause unwanted re-renders and break the drag animation.
   const isDraggingRef = useRef(false)
 
-  // Reset quando qualquer filtro ou mês muda
-  useEffect(() => { setLocalCols(null) }, [selectedMonth, levelFilter, regimeFilter, tipoFilter, nameSearch])
+  // Pula o primeiro mount — useEffect sempre dispara na montagem inicial,
+  // o que desfaria a lazy init acima sem nenhuma mudança de filtro real.
+  const filterResetMountedRef = useRef(false)
+
+  // Reset quando qualquer filtro ou mês muda (nunca no mount inicial)
+  useEffect(() => {
+    if (!filterResetMountedRef.current) { filterResetMountedRef.current = true; return }
+    setLocalCols(null)
+  }, [selectedMonth, levelFilter, regimeFilter, tipoFilter, nameSearch])
 
   // ── Sync effect ───────────────────────────────────────────────────────────
   // Fires whenever the server state (kanbanColumns) changes.
@@ -265,9 +278,9 @@ export default function FiscalPage({ onOpenClient }) {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 min-w-[520px]">
       {/* Page Header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <BarChart3 size={20} className="text-brand-400" />
@@ -292,6 +305,15 @@ export default function FiscalPage({ onOpenClient }) {
               <ChevronRight size={15} />
             </button>
           </div>
+
+          <button
+            onClick={() => setShowPresentation(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 text-gray-400 hover:text-orange-500 hover:border-orange-300 transition-all text-sm"
+            title="Modo apresentação — visão para envio ao cliente"
+          >
+            <Monitor size={15} />
+            <span className="hidden sm:inline">Apresentação</span>
+          </button>
 
           <button
             onClick={() => setShowSettings(true)}
@@ -465,15 +487,13 @@ export default function FiscalPage({ onOpenClient }) {
       {/* Kanban Board — scroll area unificada (h + v) */}
       <div className="kanban-scroll-area flex-1 overflow-auto scrollbar-thin min-h-0">
         {/* wrapper min-h-full garante que colunas vazias têm altura suficiente p/ drop */}
-        <div className="min-h-full flex flex-col pb-4">
-          {stickyHeaders && (
-            <div className="sticky top-0 z-20 bg-gray-50 pb-3 flex gap-4">
-              {columns.map(col => {
-                const colClients = getColClients(col.id)
-                return <KanbanColumnHeader key={col.id} column={{ id: col.id, label: col.label, description: col.description, clients: colClients }} />
-              })}
-            </div>
-          )}
+        <div className="min-h-full min-w-max flex flex-col pb-4">
+          <div className="sticky top-0 z-20 bg-gray-50 pb-3 flex gap-4">
+            {columns.map(col => {
+              const colClients = getColClients(col.id)
+              return <KanbanColumnHeader key={col.id} column={{ id: col.id, label: col.label, description: col.description, clients: colClients }} />
+            })}
+          </div>
           <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
             <div className="kanban-board flex gap-4 flex-1">
               {columns.map(col => {
@@ -481,7 +501,7 @@ export default function FiscalPage({ onOpenClient }) {
                 return (
                   <KanbanColumn
                     key={col.id}
-                    showHeader={!stickyHeaders}
+                    showHeader={false}
                     column={{ id: col.id, label: col.label, description: col.description, clients: colClients }}
                     colorConfig={col}
                   >
@@ -507,11 +527,16 @@ export default function FiscalPage({ onOpenClient }) {
         <KanbanSettingsModal
           columns={columns}
           onRename={updateLabel}
+          onRenameDescription={updateDescription}
           onReorder={reorder}
           onAdd={addColumn}
           onRemove={removeColumn}
           onClose={() => setShowSettings(false)}
         />
+      )}
+
+      {showPresentation && (
+        <FiscalPresentationModal onClose={() => setShowPresentation(false)} />
       )}
 
     </div>

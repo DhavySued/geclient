@@ -1,23 +1,33 @@
 import { useState } from 'react'
 import { X, ChevronUp, ChevronDown, Pencil, Check, Plus, Trash2, AlertTriangle } from 'lucide-react'
 
-export default function KanbanSettingsModal({ columns, onRename, onReorder, onAdd, onRemove, onClose }) {
-  const [editingId, setEditingId]       = useState(null)
-  const [editingValue, setEditingValue] = useState('')
-  const [newLabel, setNewLabel]         = useState('')
-  const [confirmRemove, setConfirmRemove] = useState(null) // col object
+export default function KanbanSettingsModal({ columns, onRename, onRenameDescription, onReorder, onAdd, onRemove, onClose }) {
+  const [editingId, setEditingId]         = useState(null)
+  const [editingLabel, setEditingLabel]   = useState('')
+  const [editingDesc, setEditingDesc]     = useState('')
+  const [newLabel, setNewLabel]           = useState('')
+  const [confirmRemove, setConfirmRemove] = useState(null)
 
-  // ── Renomear ───────────────────────────────────────────────────────────────
-  function startEdit(col) { setEditingId(col.id); setEditingValue(col.label) }
+  // ── Editar ─────────────────────────────────────────────────────────────────
+  function startEdit(col) {
+    setEditingId(col.id)
+    setEditingLabel(col.label)
+    setEditingDesc(col.description ?? '')
+  }
 
   function commitEdit() {
-    if (editingId && editingValue.trim()) onRename(editingId, editingValue.trim())
-    setEditingId(null); setEditingValue('')
+    if (editingId) {
+      if (editingLabel.trim()) onRename(editingId, editingLabel.trim())
+      if (onRenameDescription)  onRenameDescription(editingId, editingDesc.trim())
+    }
+    setEditingId(null)
+    setEditingLabel('')
+    setEditingDesc('')
   }
 
   function handleKeyDown(e) {
     if (e.key === 'Enter')  commitEdit()
-    if (e.key === 'Escape') { setEditingId(null); setEditingValue('') }
+    if (e.key === 'Escape') { setEditingId(null); setEditingLabel(''); setEditingDesc('') }
   }
 
   // ── Adicionar ──────────────────────────────────────────────────────────────
@@ -52,81 +62,111 @@ export default function KanbanSettingsModal({ columns, onRename, onReorder, onAd
         {/* Column list */}
         <div className="px-5 py-4 space-y-2 overflow-y-auto scrollbar-thin flex-1">
           <p className="text-xs text-gray-500 mb-3">
-            Use ▲▼ para reordenar. Clique no lápis para renomear.
+            Use ▲▼ para reordenar. Clique no lápis para editar título e subtítulo.
           </p>
 
           {columns.map((col, idx) => (
             <div
               key={col.id}
-              className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-200/70"
+              className="p-3 rounded-xl bg-gray-50 border border-gray-200/70"
             >
-              {/* Up / Down */}
-              <div className="flex flex-col gap-0.5 flex-shrink-0">
-                <button
-                  onClick={() => onReorder(idx, idx - 1)}
-                  disabled={idx === 0}
-                  className="p-0.5 rounded text-gray-400 hover:text-gray-700 disabled:opacity-20 disabled:cursor-not-allowed"
-                >
-                  <ChevronUp size={14} />
-                </button>
-                <button
-                  onClick={() => onReorder(idx, idx + 1)}
-                  disabled={idx === columns.length - 1}
-                  className="p-0.5 rounded text-gray-400 hover:text-gray-700 disabled:opacity-20 disabled:cursor-not-allowed"
-                >
-                  <ChevronDown size={14} />
-                </button>
+              <div className="flex items-center gap-3">
+                {/* Up / Down */}
+                <div className="flex flex-col gap-0.5 flex-shrink-0">
+                  <button
+                    onClick={() => onReorder(idx, idx - 1)}
+                    disabled={idx === 0}
+                    className="p-0.5 rounded text-gray-400 hover:text-gray-700 disabled:opacity-20 disabled:cursor-not-allowed"
+                  >
+                    <ChevronUp size={14} />
+                  </button>
+                  <button
+                    onClick={() => onReorder(idx, idx + 1)}
+                    disabled={idx === columns.length - 1}
+                    className="p-0.5 rounded text-gray-400 hover:text-gray-700 disabled:opacity-20 disabled:cursor-not-allowed"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                </div>
+
+                {/* Color dot */}
+                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${col.dot}`} />
+
+                {/* Label */}
+                {editingId === col.id ? (
+                  <input
+                    autoFocus
+                    value={editingLabel}
+                    onChange={e => setEditingLabel(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="flex-1 bg-white border border-brand-500/50 rounded-lg px-2.5 py-1 text-sm text-gray-900 focus:outline-none"
+                    placeholder="Título"
+                  />
+                ) : (
+                  <span
+                    className={`flex-1 text-sm font-medium ${col.text} cursor-pointer select-none`}
+                    onClick={() => startEdit(col)}
+                    title="Clique para editar"
+                  >
+                    {col.label}
+                  </span>
+                )}
+
+                {/* Edit / confirm */}
+                {editingId === col.id ? (
+                  <button
+                    onMouseDown={e => { e.preventDefault(); commitEdit() }}
+                    className="flex-shrink-0 p-1.5 rounded-lg bg-brand-500 hover:bg-brand-400 text-gray-900 transition-all"
+                  >
+                    <Check size={12} />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => startEdit(col)}
+                    className="flex-shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-brand-400 transition-colors"
+                  >
+                    <Pencil size={12} />
+                  </button>
+                )}
+
+                {/* Delete — apenas colunas customizadas */}
+                {col.isCustom && onRemove && (
+                  <button
+                    onClick={() => setConfirmRemove(col)}
+                    className="flex-shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-red-500 transition-colors"
+                    title="Excluir coluna"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
               </div>
 
-              {/* Color dot */}
-              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${col.dot}`} />
-
-              {/* Label — editable */}
+              {/* Description row */}
               {editingId === col.id ? (
-                <input
-                  autoFocus
-                  value={editingValue}
-                  onChange={e => setEditingValue(e.target.value)}
-                  onBlur={commitEdit}
-                  onKeyDown={handleKeyDown}
-                  className="flex-1 bg-white border border-brand-500/50 rounded-lg px-2.5 py-1 text-sm text-gray-900 focus:outline-none"
-                />
-              ) : (
-                <span
-                  className={`flex-1 text-sm font-medium ${col.text} cursor-pointer select-none`}
+                <div className="mt-2 ml-[52px]">
+                  <input
+                    value={editingDesc}
+                    onChange={e => setEditingDesc(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1 text-xs text-gray-600 focus:outline-none focus:border-brand-400/60"
+                    placeholder="Subtítulo (opcional)"
+                  />
+                </div>
+              ) : col.description ? (
+                <p
+                  className="mt-1 ml-[52px] text-[11px] text-gray-400 cursor-pointer truncate"
                   onClick={() => startEdit(col)}
-                  title="Clique para renomear"
+                  title="Clique para editar"
                 >
-                  {col.label}
-                </span>
-              )}
-
-              {/* Edit / confirm */}
-              {editingId === col.id ? (
-                <button
-                  onClick={commitEdit}
-                  className="flex-shrink-0 p-1.5 rounded-lg bg-brand-500 hover:bg-brand-400 text-gray-900 transition-all"
-                >
-                  <Check size={12} />
-                </button>
+                  {col.description}
+                </p>
               ) : (
-                <button
+                <p
+                  className="mt-1 ml-[52px] text-[11px] text-gray-300 cursor-pointer italic"
                   onClick={() => startEdit(col)}
-                  className="flex-shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-brand-400 transition-colors"
                 >
-                  <Pencil size={12} />
-                </button>
-              )}
-
-              {/* Delete — apenas colunas customizadas */}
-              {col.isCustom && onRemove && (
-                <button
-                  onClick={() => setConfirmRemove(col)}
-                  className="flex-shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-red-500 transition-colors"
-                  title="Excluir coluna"
-                >
-                  <Trash2 size={12} />
-                </button>
+                  Sem subtítulo — clique para adicionar
+                </p>
               )}
             </div>
           ))}
@@ -184,7 +224,7 @@ export default function KanbanSettingsModal({ columns, onRename, onReorder, onAd
               </div>
             </div>
             <p className="text-[13px] text-gray-600 mb-5 leading-relaxed">
-              Os cards desta coluna serão movidos de volta para <strong>Sem Consulta</strong>. Esta ação não pode ser desfeita.
+              Os cards desta coluna serão movidos de volta para a primeira coluna. Esta ação não pode ser desfeita.
             </p>
             <div className="flex gap-3">
               <button

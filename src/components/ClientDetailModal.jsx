@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
-  X, User, Clock, FileText, AlertTriangle,
-  Plus, BarChart3, Users, Briefcase,
-  History, Pencil, Check, ChevronDown, ChevronUp, Repeat, Info, CheckCircle2, Copy,
+  X, Clock, FileText, Plus, Briefcase,
+  History, Pencil, Check, ChevronDown, ChevronUp, Repeat, Info, CheckCircle2, Copy, Calendar,
 } from 'lucide-react'
 import { useTasks } from '../context/TasksContext'
 import { useUsers } from '../context/UsersContext'
@@ -11,6 +10,7 @@ import { calcFiscalScore, getApplicableItems } from '../hooks/useFiscalItems'
 import { useFiscalItemsCtx } from '../context/FiscalItemsContext'
 import { useFiscalConfig } from '../context/FiscalConfigContext'
 import { useFiscalRecords } from '../context/FiscalRecordsContext'
+import { useKanbanSettings } from '../hooks/useKanbanSettings'
 import LevelBadge from './LevelBadge'
 import RichTextEditor from './RichTextEditor'
 import TaskItem, { TemplateCard } from './TaskItem'
@@ -99,41 +99,6 @@ function TabBtn({ active, onClick, children }) {
     >
       {children}
     </button>
-  )
-}
-
-// ── Overview Tab ───────────────────────────────────────────────────────────
-
-function OverviewTab({ client }) {
-  return (
-    <div className="space-y-5">
-      <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Status nos Kanbans</p>
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { icon: BarChart3, label: 'Fiscal', badge: FISCAL_LABEL[client.fiscalStatus], color: FISCAL_COLOR[client.fiscalStatus] },
-            { icon: Users,     label: 'CX',     badge: CX_LABEL[client.cxStatus],         color: CX_COLOR[client.cxStatus] },
-          ].map(({ icon: Icon, label, badge, color }) => (
-            <div key={label} className="bg-gray-100/60 rounded-xl p-3 border border-gray-200/50">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Icon size={13} className="text-gray-500" />
-                <span className="text-xs text-gray-500">{label}</span>
-              </div>
-              <StatusBadge label={badge || '—'} colorClass={color || ''} />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Detalhes</p>
-        <div className="grid grid-cols-2 gap-3">
-          <InfoCard icon={User}         label="Responsável"        value={client.responsible || '—'} />
-          <InfoCard icon={Clock}        label="Última interação"   value={formatDate(client.lastInteraction)} />
-          <InfoCard icon={Briefcase}    label="Regime"             value={client.regime || '—'} />
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -992,21 +957,286 @@ function FiscalHistoryTab({ client }) {
   )
 }
 
+// ── CX Detail View ─────────────────────────────────────────────────────────
+
+function CXDetailView({ client }) {
+  const { updateClient } = useClients()
+  const [note, setNote]     = useState(client.notes ?? '')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    setSaving(true)
+    await updateClient(client.id, { notes: note.trim() })
+    setSaving(false)
+  }
+
+  const cxLabel = CX_LABEL[client.cxStatus] ?? client.cxStatus ?? '—'
+  const cxColor = CX_COLOR[client.cxStatus] ?? 'text-gray-400 bg-gray-100 border-gray-200'
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Status CX</p>
+        <div className="bg-gray-100/60 rounded-xl p-4 border border-gray-200/50">
+          <StatusBadge label={cxLabel} colorClass={cxColor} />
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Detalhes</p>
+        <div className="grid grid-cols-2 gap-3">
+          <InfoCard icon={Briefcase} label="Regime"          value={client.regime || '—'} />
+          <InfoCard icon={Clock}     label="Última interação" value={formatDate(client.lastInteraction)} />
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <FileText size={14} className="text-gray-400" />
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Observações</p>
+        </div>
+        <textarea
+          value={note}
+          onChange={e => setNote(e.target.value)}
+          rows={4}
+          placeholder="Observações sobre este cliente..."
+          className="w-full bg-gray-100/60 border border-gray-200/50 rounded-xl px-4 py-3 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-brand-500/50 resize-none"
+        />
+        {note.trim() !== (client.notes ?? '').trim() && (
+          <div className="flex justify-end mt-2">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-brand-500 hover:bg-brand-400 text-gray-900 transition-all disabled:opacity-50"
+            >
+              {saving ? 'Salvando…' : 'Salvar'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Onboarding Stepper ─────────────────────────────────────────────────────
+
+const ONBOARDING_STEPPER_DEFAULTS = [
+  { id: 'sem_inicio',      label: 'Sem Início',       accent: '#64748b', bg: '', border: '', text: '', dot: '', headerBg: '', description: '' },
+  { id: 'em_contato',      label: 'Em Contato',       accent: '#2563eb', bg: '', border: '', text: '', dot: '', headerBg: '', description: '' },
+  { id: 'aguardando_docs', label: 'Ag. Documentos',   accent: '#d97706', bg: '', border: '', text: '', dot: '', headerBg: '', description: '' },
+  { id: 'em_configuracao', label: 'Em Configuração',  accent: '#7c3aed', bg: '', border: '', text: '', dot: '', headerBg: '', description: '' },
+  { id: 'concluido',       label: 'Concluído',        accent: '#059669', bg: '', border: '', text: '', dot: '', headerBg: '', description: '' },
+]
+
+function OnboardingStepper({ currentStatus }) {
+  const { columns } = useKanbanSettings('onboarding', ONBOARDING_STEPPER_DEFAULTS)
+  const currentIdx  = columns.findIndex(c => c.id === currentStatus)
+
+  const items = []
+  columns.forEach((col, i) => {
+    const isPast    = i < currentIdx
+    const isCurrent = i === currentIdx
+    const accent    = col.accent ?? '#9CA3AF'
+    const circleBg  = isPast ? '#10b981' : isCurrent ? accent : '#F3F4F6'
+    const labelColor= isPast ? '#9CA3AF'  : isCurrent ? accent : '#D1D5DB'
+    const lineColor = isPast ? '#10b981'  : '#E5E7EB'
+
+    items.push(
+      <div key={col.id} className="flex flex-col items-center flex-shrink-0" style={{ width: 56 }}>
+        <div
+          className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm transition-all"
+          style={{
+            background: circleBg,
+            color: isPast || isCurrent ? 'white' : '#C0C6CF',
+            boxShadow: isCurrent ? `0 0 0 5px ${accent}22, 0 0 0 2px ${accent}55` : 'none',
+          }}
+        >
+          {isPast ? <Check size={15} /> : i + 1}
+        </div>
+        <p
+          className="text-[9px] text-center mt-1.5 leading-tight line-clamp-2 font-medium"
+          style={{ color: labelColor, width: 56 }}
+        >
+          {col.label}
+        </p>
+      </div>
+    )
+
+    if (i < columns.length - 1) {
+      items.push(
+        <div
+          key={`line-${i}`}
+          className="flex-1 h-0.5 mt-[18px] mx-0.5"
+          style={{ background: lineColor, minWidth: 8 }}
+        />
+      )
+    }
+  })
+
+  return (
+    <div className="flex items-start px-1 py-3">
+      {items}
+    </div>
+  )
+}
+
+// ── Onboarding Detail View ──────────────────────────────────────────────────
+
+const ONBOARDING_STAGE_LABEL = {
+  sem_inicio:      'Sem Início',
+  em_contato:      'Em Contato',
+  aguardando_docs: 'Aguardando Documentos',
+  em_configuracao: 'Em Configuração',
+  concluido:       'Concluído',
+}
+
+function stageLabel(id) {
+  return ONBOARDING_STAGE_LABEL[id] ?? id ?? '—'
+}
+
+function formatEntryDate(isoStr) {
+  if (!isoStr) return null
+  const d = new Date(isoStr)
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) +
+    ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
+function OnboardingDetailView({ client }) {
+  const { updateClient } = useClients()
+  const history      = client.onboardingHistory ?? []
+  const currentEntry = history.length > 0 ? history[history.length - 1] : null
+  const pastEntries  = history.length > 1 ? [...history.slice(0, -1)].reverse() : []
+
+  const [note, setNote]     = useState(currentEntry?.note ?? '')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    setSaving(true)
+    let updatedHistory
+    if (currentEntry) {
+      updatedHistory = [...history.slice(0, -1), { ...currentEntry, note: note.trim() }]
+    } else {
+      // Primeira observação — cria a entrada inicial
+      updatedHistory = [{ stage: client.onboardingStatus, enteredAt: new Date().toISOString(), note: note.trim() }]
+    }
+    await updateClient(client.id, { onboardingHistory: updatedHistory })
+    setSaving(false)
+  }
+
+  const isDirty = note.trim() !== (currentEntry?.note ?? '').trim()
+
+  return (
+    <div className="space-y-5">
+      {/* Stepper visual */}
+      <div className="rounded-xl border border-gray-200/80 bg-gray-50/60 px-3">
+        <OnboardingStepper currentStatus={client.onboardingStatus} />
+      </div>
+
+      {/* Detalhes básicos */}
+      <div className="grid grid-cols-2 gap-3">
+        <InfoCard icon={Briefcase} label="Regime"           value={client.regime || '—'} />
+        <InfoCard icon={Clock}     label="Última interação"  value={formatDate(client.lastInteraction)} />
+      </div>
+
+      {/* Etapa atual + observação */}
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Etapa Atual</p>
+        <div className="rounded-xl border border-gray-200/80 overflow-hidden">
+          {/* Cabeçalho da etapa */}
+          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200/80">
+            <span className="text-sm font-semibold text-gray-700">
+              {stageLabel(client.onboardingStatus)}
+            </span>
+            {currentEntry?.enteredAt ? (
+              <div className="flex items-center gap-1.5 text-gray-400">
+                <Calendar size={11} />
+                <span className="text-xs">{formatEntryDate(currentEntry.enteredAt)}</span>
+              </div>
+            ) : (
+              <span className="text-xs text-gray-400">Data não registrada</span>
+            )}
+          </div>
+
+          {/* Campo de observação da etapa atual */}
+          <div className="px-4 py-3">
+            <textarea
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              rows={3}
+              placeholder="Adicione uma observação sobre esta etapa..."
+              className="w-full bg-white border border-gray-200/80 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-brand-500/50 resize-none"
+            />
+            {isDirty && (
+              <div className="flex justify-end mt-2">
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500 hover:bg-brand-400 text-gray-900 transition-all disabled:opacity-50"
+                >
+                  {saving ? 'Salvando…' : 'Salvar'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Histórico de etapas anteriores */}
+      {pastEntries.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Histórico</p>
+          <div className="relative">
+            <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gray-200" />
+            <div className="space-y-2.5">
+              {pastEntries.map((entry, i) => (
+                <div key={i} className="relative pl-6">
+                  <div className="absolute left-0 top-3 w-3.5 h-3.5 rounded-full bg-white border-2 border-gray-300" />
+                  <div className="rounded-xl border border-gray-200/80 overflow-hidden">
+                    <div className="flex items-center justify-between px-3 py-2 bg-gray-50/80 border-b border-gray-200/60">
+                      <span className="text-xs font-semibold text-gray-500">{stageLabel(entry.stage)}</span>
+                      {entry.enteredAt && (
+                        <span className="text-[10px] text-gray-400">{formatEntryDate(entry.enteredAt)}</span>
+                      )}
+                    </div>
+                    <div className="px-3 py-2">
+                      {entry.note ? (
+                        <p className="text-xs text-gray-500 leading-relaxed">{entry.note}</p>
+                      ) : (
+                        <p className="text-xs text-gray-400 italic">Sem observação registrada</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Modal ─────────────────────────────────────────────────────────────
 
-export default function ClientDetailModal({ client, selectedMonth, onClose }) {
-  const [tab, setTab] = useState('overview')
+export default function ClientDetailModal({ client, selectedMonth, mode = 'fiscal', onClose }) {
+  const [tab, setTab] = useState('analysis')
   const { clients }          = useClients()
   const { tasks }            = useTasks()
   const { getClientHistory } = useFiscalRecords()
 
-  // Sempre usa a versão live do contexto — atualizações refletem em tempo real sem fechar o modal
   const liveClient = client ? (clients.find(c => c.id === client.id) ?? client) : null
+
+  // Reseta a aba ao trocar de cliente ou modo
+  useEffect(() => { setTab('analysis') }, [client?.id, mode])
 
   if (!liveClient) return null
 
   const pendingCount = tasks.filter(t => t.clientId === liveClient.id && t.status !== 'concluida').length
   const historyCount = getClientHistory(liveClient.id).length
+
+  const isFiscal      = mode === 'fiscal'
+  const isCX          = mode === 'cx'
+  const isOnboarding  = mode === 'onboarding'
 
   return (
     <div
@@ -1031,32 +1261,40 @@ export default function ClientDetailModal({ client, selectedMonth, onClose }) {
               <X size={20} />
             </button>
           </div>
-          <div className="flex gap-1 mt-4 flex-wrap">
-            <TabBtn active={tab === 'overview'} onClick={() => setTab('overview')}>Visão Geral</TabBtn>
-            <TabBtn active={tab === 'analysis'} onClick={() => setTab('analysis')}>Análise Fiscal</TabBtn>
-            <TabBtn active={tab === 'history'}  onClick={() => setTab('history')}>
-              Histórico Fiscal{historyCount > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-700 text-gray-400 text-[10px] font-bold">
-                  {historyCount}
-                </span>
-              )}
-            </TabBtn>
-            <TabBtn active={tab === 'tasks'}    onClick={() => setTab('tasks')}>
-              Tarefas{pendingCount > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-500 text-gray-900 text-[10px] font-bold">
-                  {pendingCount}
-                </span>
-              )}
-            </TabBtn>
-          </div>
+
+          {/* Abas apenas no modal fiscal */}
+          {isFiscal && (
+            <div className="flex gap-1 mt-4 flex-wrap">
+              <TabBtn active={tab === 'analysis'} onClick={() => setTab('analysis')}>Análise Fiscal</TabBtn>
+              <TabBtn active={tab === 'history'}  onClick={() => setTab('history')}>
+                Histórico Fiscal{historyCount > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-700 text-gray-400 text-[10px] font-bold">
+                    {historyCount}
+                  </span>
+                )}
+              </TabBtn>
+              <TabBtn active={tab === 'tasks'} onClick={() => setTab('tasks')}>
+                Tarefas{pendingCount > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-500 text-gray-900 text-[10px] font-bold">
+                    {pendingCount}
+                  </span>
+                )}
+              </TabBtn>
+            </div>
+          )}
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5">
-          {tab === 'overview' && <OverviewTab       client={liveClient} />}
-          {tab === 'analysis' && <AnalysisTab      client={liveClient} selectedMonth={selectedMonth} />}
-          {tab === 'history'  && <FiscalHistoryTab client={liveClient} />}
-          {tab === 'tasks'    && <TasksTab         client={liveClient} />}
+        {/* Conteúdo por modo */}
+        <div key={liveClient.id + mode} className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5">
+          {isFiscal && (
+            <>
+              {tab === 'analysis' && <AnalysisTab      client={liveClient} selectedMonth={selectedMonth} />}
+              {tab === 'history'  && <FiscalHistoryTab client={liveClient} />}
+              {tab === 'tasks'    && <TasksTab         client={liveClient} />}
+            </>
+          )}
+          {isCX         && <CXDetailView         client={liveClient} />}
+          {isOnboarding && <OnboardingDetailView  client={liveClient} />}
         </div>
       </div>
     </div>
