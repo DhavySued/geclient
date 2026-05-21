@@ -8,15 +8,15 @@ const DP_SERVICES = [
   { key: 'adiantamentoFolha', label: 'Adiant. Folha', filterable: true },
   { key: 'folha',             label: 'Folha',          filterable: true },
   { key: 'proLabore',         label: 'Pró-Labore',     filterable: true },
-  { key: 'envioFolha',        label: 'Env. Folha',     requiresFolha: true, filterable: true },
+  { key: 'envioFolha',        label: 'Esocial',        requiresFolha: true, filterable: true },
   { key: 'inss',              label: 'INSS',            requiresFolhaOrProLabore: true, filterable: true },
   { key: 'fgts',              label: 'FGTS',            requiresFolha: true,           filterable: true },
   { key: 'autonomoSal',       label: 'Aut./SAL',        filterable: true },
-  { key: 'semMovimentacao',   label: 'Sem Mov.',        filterable: true },
   { key: 'det',               label: 'DET',             requiresFolha: true, filterable: true },
 ]
 
 function isConfigured(svc, service) {
+  if (service.key === 'envioFolha') return !!svc.envioFolha || !!svc.semMovimentacao
   if (service.requiresFolhaOrProLabore) return svc.folha === true || svc.proLabore === true
   if (service.requiresFolha) return svc.folha === true
   return !!svc[service.key]
@@ -57,6 +57,7 @@ export default function DeptoPessoalPage() {
   const [yearMonth, setYearMonth] = useState(() => toYearMonth(new Date()))
   const [search, setSearch]       = useState('')
   const [activeFilters, setActiveFilters] = useState(new Set())
+  const [statusFilters, setStatusFilters] = useState(new Set())
   const [saveError, setSaveError]     = useState('')
   const [showBatch, setShowBatch]     = useState(false)
 
@@ -74,6 +75,14 @@ export default function DeptoPessoalPage() {
     })
   }
 
+  function toggleStatusFilter(key) {
+    setStatusFilters(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
+
   // Lógica AND — empresa precisa ter TODOS os serviços filtrados
   const filtered = useMemo(() => {
     let list = [...clients]
@@ -83,13 +92,6 @@ export default function DeptoPessoalPage() {
         c.name.toLowerCase().includes(q) || (c.cnpj ?? '').includes(q)
       )
     }
-    // MEI com Sem Movimentação não precisa de checklist
-    list = list.filter(c => {
-      if (c.regime !== 'MEI') return true
-      const svc = getServicesForMonth(c, yearMonth)
-      return !svc.semMovimentacao
-    })
-
     if (activeFilters.size > 0) {
       list = list.filter(c => {
         const svc = getServicesForMonth(c, yearMonth)
@@ -99,8 +101,14 @@ export default function DeptoPessoalPage() {
         })
       })
     }
+    if (statusFilters.size > 0) {
+      list = list.filter(c => {
+        const rec = getRecord(c.id, yearMonth) ?? {}
+        return statusFilters.has(rec.status ?? 'pendente')
+      })
+    }
     return list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-  }, [clients, search, activeFilters, yearMonth])
+  }, [clients, search, activeFilters, statusFilters, yearMonth, getRecord])
 
   const totalConfigured = useMemo(() => {
     return filtered.reduce((acc, c) => {
@@ -236,7 +244,32 @@ export default function DeptoPessoalPage() {
           />
         </div>
 
-        {/* Filtros ativos — indicador + limpar */}
+        {/* Filtros de status */}
+        <div className="flex items-center gap-1.5">
+          {[
+            { key: 'pendente',  label: 'Pendente',  bg: '#FFF1F2', border: '#fca5a5', color: '#dc2626' },
+            { key: 'declarado', label: 'Declarado', bg: '#FEFCE8', border: '#fde047', color: '#ca8a04' },
+            { key: 'enviado',   label: 'Enviado',   bg: '#F5F3FF', border: '#c4b5fd', color: '#7c3aed' },
+            { key: 'fechado',   label: 'Fechado',   bg: '#F0FDF4', border: '#86efac', color: '#16a34a' },
+          ].map(s => {
+            const active = statusFilters.has(s.key)
+            return (
+              <button
+                key={s.key}
+                onClick={() => toggleStatusFilter(s.key)}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all"
+                style={active
+                  ? { background: s.bg, borderColor: s.border, color: s.color }
+                  : { background: '#fff', borderColor: '#e5e7eb', color: '#9ca3af' }
+                }
+              >
+                {s.label}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Filtros de serviço ativos — indicador + limpar */}
         {activeFilters.size > 0 && (
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1 text-xs font-medium text-brand-500">
@@ -272,7 +305,7 @@ export default function DeptoPessoalPage() {
       </div>
 
       {/* Tabela */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-auto" style={{ maxHeight: 'calc(100vh - 340px)' }}>
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
           <table className="w-full border-collapse">
             <thead className="sticky top-0 z-10">
               <tr style={{ background: '#f9fafb', boxShadow: '0 1px 0 #e5e7eb' }}>
@@ -288,7 +321,7 @@ export default function DeptoPessoalPage() {
                 <th className="pl-3 pr-2 py-2.5 text-[11px] font-semibold text-gray-500 border-b border-gray-100 text-left whitespace-nowrap w-px">
                   CNPJ
                 </th>
-                <th className="pl-2 pr-3 py-2.5 text-[11px] font-semibold text-gray-500 border-b border-gray-100 text-left whitespace-nowrap w-px">
+                <th className="px-3 py-2.5 text-[11px] font-semibold text-gray-500 border-b border-gray-100 text-center whitespace-nowrap w-px">
                   Status
                 </th>
 
@@ -367,7 +400,7 @@ export default function DeptoPessoalPage() {
                         <span className="text-[11px] font-mono text-gray-400">{client.cnpj ?? '—'}</span>
                       </td>
 
-                      <td className="pl-2 pr-3 py-2 w-px" style={{ background: 'inherit' }}>
+                      <td className="px-3 py-2 w-px text-center" style={{ background: 'inherit' }}>
                         {(() => {
                           const status = rec.status ?? 'pendente'
                           const STATUS_STYLES = {
@@ -401,11 +434,13 @@ export default function DeptoPessoalPage() {
                         const conf      = isConfigured(svc, s)
                         const isDone    = conf && (rec[s.key] ?? false)
                         const colZebra  = colIdx % 2 === 1
-                        const cellBg    = isActive
-                          ? 'rgba(243,146,0,0.06)'
-                          : colZebra
-                            ? rowZebra ? '#ececee' : '#f3f4f6'
-                            : 'inherit'
+                        const cellBg    = isDone
+                          ? 'rgba(34,197,94,0.22)'
+                          : conf
+                            ? 'rgba(239,68,68,0.10)'
+                            : isActive
+                              ? 'rgba(243,146,0,0.06)'
+                              : 'inherit'
 
                         if (!conf) {
                           return (
@@ -423,13 +458,20 @@ export default function DeptoPessoalPage() {
                               title={isDone ? 'Marcar como pendente' : 'Marcar como concluído'}
                             >
                               {isDone ? (
-                                <CheckCircle2 size={17} style={{ color: '#22c55e' }} />
+                                <span
+                                  className="inline-flex items-center justify-center rounded-md transition-all"
+                                  style={{ width: 22, height: 22, background: 'linear-gradient(135deg,#22c55e,#16a34a)', boxShadow: '0 2px 6px rgba(34,197,94,0.45)' }}
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                    <path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                </span>
                               ) : (
                                 <span
-                                  className="inline-flex items-center justify-center rounded transition-all"
-                                  style={{ width: 17, height: 17, border: '2px solid #fca5a5', background: '#fff1f2', borderRadius: 4 }}
+                                  className="inline-flex items-center justify-center rounded-md transition-all"
+                                  style={{ width: 22, height: 22, background: 'linear-gradient(135deg,#f87171,#dc2626)', boxShadow: '0 2px 6px rgba(239,68,68,0.40)' }}
                                 >
-                                  <span style={{ width: 8, height: 2, background: '#f87171', borderRadius: 1, display: 'block' }} />
+                                  <span style={{ width: 9, height: 2, background: '#fff', borderRadius: 1, display: 'block' }} />
                                 </span>
                               )}
                             </button>

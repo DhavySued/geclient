@@ -14,8 +14,9 @@ import { ChevronDown, Search, X, Building2 } from 'lucide-react'
 export default function ClientSelect({ clients = [], value, onChange, placeholder = 'Cliente (opcional)', className = '' }) {
   const [open,   setOpen]   = useState(false)
   const [search, setSearch] = useState('')
-  const rootRef  = useRef(null)
-  const inputRef = useRef(null)
+  const rootRef     = useRef(null)
+  const inputRef    = useRef(null)
+  const mousedownRef = useRef(false)
 
   const sorted = useMemo(() =>
     [...clients].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }))
@@ -63,6 +64,8 @@ export default function ClientSelect({ clients = [], value, onChange, placeholde
       {/* Trigger */}
       <button
         type="button"
+        onMouseDown={() => { mousedownRef.current = true; setTimeout(() => { mousedownRef.current = false }, 200) }}
+        onFocus={() => { if (!mousedownRef.current) handleOpen() }}
         onClick={open ? () => { setOpen(false); setSearch('') } : handleOpen}
         className="w-full flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-left transition-colors focus:outline-none focus:border-brand-400/60 hover:border-gray-300"
       >

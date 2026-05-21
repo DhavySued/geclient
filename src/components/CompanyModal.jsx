@@ -83,7 +83,7 @@ export default function CompanyModal({ client, onSave, onClose }) {
     if (client) {
       setForm({
         name:       client.name || '',
-        cnpj:       client.cnpj || '',
+        cnpj:       applyCnpjMask(client.cnpj || ''),
         level:      client.level || 'Standard',
         regime:     client.regime || 'Simples Nacional',
         tipo:       client.tipo || 'Serviço',
@@ -127,9 +127,9 @@ export default function CompanyModal({ client, onSave, onClose }) {
   function applyDpRules(current, key, value) {
     let s = { ...current, [key]: value }
     if (key === 'semMovimentacao' && value) {
-      return { ...EMPTY_DP, semMovimentacao: true }
+      return { ...EMPTY_DP, semMovimentacao: true, autonomoSal: current.autonomoSal ?? false }
     }
-    if (key !== 'semMovimentacao' && value) {
+    if (key !== 'semMovimentacao' && key !== 'autonomoSal' && value) {
       s.semMovimentacao = false
     }
     if (key === 'folha') {

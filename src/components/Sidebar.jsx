@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BarChart3, Building2, CheckSquare, Calendar, UserCog, Settings, TrendingUp, LogOut, ClipboardList, KeyRound, UserPlus, ChevronLeft, ChevronRight, Users } from 'lucide-react'
+import { BarChart3, Building2, CheckSquare, Calendar, UserCog, Settings, TrendingUp, LogOut, ClipboardList, KeyRound, UserPlus, ChevronLeft, ChevronRight, Users, FileText, Scale } from 'lucide-react'
 import logoSidebar from '../assets/logo-sidebar.png'
 import { useTasks } from '../context/TasksContext'
 import { useAuth } from '../context/AuthContext'
@@ -10,19 +10,21 @@ function getInitials(name = '') {
 }
 
 const kanbans = [
-  { id: 'cadastro', icon: Building2,  label: 'Empresas',       description: 'Cadastro e gestão' },
-  { id: 'fiscal',   icon: BarChart3,  label: 'Gestão Fiscal',  description: 'Situação tributária' },
-  { id: 'cx',          icon: TrendingUp, label: 'NPS',        description: 'Health Score' },
-  { id: 'onboarding',   icon: UserPlus,   label: 'Onboarding',        description: 'Integração de clientes' },
-  { id: 'depto-pessoal', icon: Users,    label: 'Depto. Pessoal',    description: 'Checklist mensal de DP' },
+  { id: 'cadastro',            icon: Building2,  label: 'Empresas',            description: 'Cadastro e gestão' },
+  { id: 'fiscal',              icon: BarChart3,  label: 'Gestão Fiscal',       description: 'Situação tributária' },
+  { id: 'cx',                  icon: TrendingUp, label: 'NPS',                 description: 'Health Score' },
+  { id: 'onboarding',          icon: UserPlus,   label: 'Onboarding',          description: 'Integração de clientes' },
+  { id: 'depto-pessoal',       icon: Users,      label: 'Depto. Pessoal',      description: 'Checklist mensal de DP' },
+  { id: 'controle-societario', icon: Scale,      label: 'Controle Societário', description: 'Ordens de serviço societárias' },
 ]
 
 const tools = [
-  { id: 'tasks',    icon: CheckSquare,  label: 'Tarefas',       description: 'Controle de tarefas' },
-  { id: 'calendar', icon: Calendar,     label: 'Calendário',    description: 'Tarefas por data' },
-  { id: 'users',    icon: UserCog,      label: 'Usuários',      description: 'Equipe do escritório' },
-  { id: 'audit',    icon: ClipboardList, label: 'Auditoria',    description: 'Histórico de ações' },
-  { id: 'settings', icon: Settings,     label: 'Configurações', description: 'Preferências do sistema' },
+  { id: 'tasks',      icon: CheckSquare,  label: 'Tarefas',       description: 'Controle de tarefas' },
+  { id: 'calendar',   icon: Calendar,     label: 'Calendário',    description: 'Tarefas por data' },
+  { id: 'relatorios', icon: FileText,     label: 'Relatórios',    description: 'Relatórios personalizados' },
+  { id: 'users',      icon: UserCog,      label: 'Usuários',      description: 'Equipe do escritório' },
+  { id: 'audit',      icon: ClipboardList, label: 'Auditoria',   description: 'Histórico de ações' },
+  { id: 'settings',   icon: Settings,     label: 'Configurações', description: 'Preferências do sistema' },
 ]
 
 function SectionLabel({ children }) {

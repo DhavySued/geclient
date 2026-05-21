@@ -6,7 +6,7 @@ const DP_COLS = [
   { key: 'adiantamentoFolha', label: 'Adiant.\nFolha' },
   { key: 'folha',             label: 'Folha' },
   { key: 'proLabore',         label: 'Pró-\nLabore' },
-  { key: 'envioFolha',        label: 'Envio\nFolha' },
+  { key: 'envioFolha',        label: 'Esocial' },
   { key: 'inss',              label: 'INSS' },
   { key: 'fgts',              label: 'FGTS' },
   { key: 'autonomoSal',       label: 'Aut./\nSAL' },
@@ -43,8 +43,8 @@ function getServicesForMonth(client, yearMonth) {
 
 function applyRules(current, key, value) {
   let s = { ...current, [key]: value }
-  if (key === 'semMovimentacao' && value) return { ...EMPTY, semMovimentacao: true }
-  if (key !== 'semMovimentacao' && value) s.semMovimentacao = false
+  if (key === 'semMovimentacao' && value) return { ...EMPTY, semMovimentacao: true, autonomoSal: current.autonomoSal ?? false }
+  if (key !== 'semMovimentacao' && key !== 'autonomoSal' && value) s.semMovimentacao = false
   if (key === 'folha') {
     if (value) { s.envioFolha = true; s.inss = true; s.fgts = true; s.det = true }
     else { s.envioFolha = false; s.fgts = false; s.det = false; if (!s.proLabore) s.inss = false }

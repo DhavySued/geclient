@@ -24,7 +24,10 @@ import SettingsPage from './pages/SettingsPage'
 import LoginPage from './pages/LoginPage'
 import AuditPage from './pages/AuditPage'
 import DeptoPessoalPage from './pages/DeptoPessoalPage'
+import RelatoriosPage from './pages/RelatoriosPage'
+import ControlesSocietarioPage from './pages/ControlesSocietarioPage'
 import { DpRecordsProvider } from './context/DpRecordsContext'
+import { SocietarioProvider } from './context/SocietarioContext'
 import { Loader2, AlertTriangle, ShieldOff } from 'lucide-react'
 
 function AccessDenied() {
@@ -126,6 +129,8 @@ function AppContent() {
           {activePage === 'audit'     && (can('audit',    'view') ? <AuditPage /> : <AccessDenied />)}
           {activePage === 'settings'     && (can('settings',      'view') ? <SettingsPage /> : <AccessDenied />)}
           {activePage === 'depto-pessoal' && (can('depto-pessoal', 'view') ? <DeptoPessoalPage /> : <AccessDenied />)}
+          {activePage === 'relatorios'          && (can('relatorios',          'view') ? <RelatoriosPage />          : <AccessDenied />)}
+          {activePage === 'controle-societario' && (can('controle-societario', 'view') ? <ControlesSocietarioPage /> : <AccessDenied />)}
         </div>
       </main>
 
@@ -155,11 +160,13 @@ function AuthGate() {
             <FiscalRecordsProvider>
               <ClientsProvider>
                 <DpRecordsProvider>
-                  <UsersProvider>
-                    <TasksProvider>
-                      <AppContent />
-                    </TasksProvider>
-                  </UsersProvider>
+                  <SocietarioProvider>
+                    <UsersProvider>
+                      <TasksProvider>
+                        <AppContent />
+                      </TasksProvider>
+                    </UsersProvider>
+                  </SocietarioProvider>
                 </DpRecordsProvider>
               </ClientsProvider>
             </FiscalRecordsProvider>

@@ -2,16 +2,18 @@ import { useAuth } from '../context/AuthContext'
 
 // ── Definição dos módulos e suas ações disponíveis ────────────────────────────
 export const MODULES = [
-  { id: 'cadastro', label: 'Empresas',       actions: ['view', 'create', 'edit', 'delete'] },
-  { id: 'fiscal',   label: 'Gestão Fiscal',  actions: ['view', 'edit'] },
-  { id: 'cx',          label: 'NPS',            actions: ['view', 'edit'] },
-  { id: 'onboarding',  label: 'Onboarding',    actions: ['view', 'edit'] },
-  { id: 'tasks',    label: 'Tarefas',        actions: ['view', 'create', 'edit', 'delete'] },
-  { id: 'calendar', label: 'Calendário',     actions: ['view', 'edit', 'delete'] },
-  { id: 'users',    label: 'Usuários',       actions: ['view', 'create', 'edit', 'delete'] },
-  { id: 'settings', label: 'Configurações',  actions: ['view', 'edit'] },
-  { id: 'audit',         label: 'Auditoria',         actions: ['view'] },
-  { id: 'depto-pessoal', label: 'Depto. Pessoal',   actions: ['view', 'edit'] },
+  { id: 'cadastro',            label: 'Empresas',            actions: ['view', 'create', 'edit', 'delete'] },
+  { id: 'fiscal',              label: 'Gestão Fiscal',       actions: ['view', 'edit'] },
+  { id: 'cx',                  label: 'NPS',                 actions: ['view', 'edit'] },
+  { id: 'onboarding',          label: 'Onboarding',          actions: ['view', 'edit'] },
+  { id: 'depto-pessoal',       label: 'Depto. Pessoal',      actions: ['view', 'edit'] },
+  { id: 'controle-societario', label: 'Controle Societário', actions: ['view', 'edit'] },
+  { id: 'relatorios',          label: 'Relatórios',          actions: ['view'] },
+  { id: 'tasks',               label: 'Tarefas',             actions: ['view', 'create', 'edit', 'delete'] },
+  { id: 'calendar',            label: 'Calendário',          actions: ['view', 'edit', 'delete'] },
+  { id: 'users',               label: 'Usuários',            actions: ['view', 'create', 'edit', 'delete'] },
+  { id: 'audit',               label: 'Auditoria',           actions: ['view'] },
+  { id: 'settings',            label: 'Configurações',       actions: ['view', 'edit'] },
 ]
 
 // Permissões padrão: tudo liberado
