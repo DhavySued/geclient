@@ -274,6 +274,9 @@ function KanbanCard({ card, index, onEdit, onDelete, clients, users }) {
     && !!card.updatedAt
     && (Date.now() - new Date(card.updatedAt).getTime() > 24 * 60 * 60 * 1000)
 
+  // Tema: vermelho sólido quando stale sem alerta manual; alerta leve quando alert
+  const S = isStale && !isAlert
+
   // Observação mais recente
   const lastObs = (card.observations ?? [])
     .filter(o => o.date)
@@ -289,27 +292,29 @@ function KanbanCard({ card, index, onEdit, onDelete, clients, users }) {
           className="rounded-xl border px-3.5 py-3 flex flex-col gap-2 group transition-all cursor-pointer relative overflow-hidden"
           style={{
             ...provided.draggableProps.style,
-            background: (isAlert || isStale) ? '#fff5f5' : '#fff',
-            borderColor: isAlert ? '#dc2626' : isStale ? '#fca5a5' : '#e5e7eb',
-            borderWidth: (isAlert || isStale) ? 2 : 1,
+            background:  S ? '#ef4444' : isAlert ? '#fff5f5' : '#fff',
+            borderColor: S ? '#dc2626' : isAlert ? '#dc2626' : '#e5e7eb',
+            borderWidth: (S || isAlert) ? 2 : 1,
             boxShadow: snapshot.isDragging
-              ? '0 8px 24px rgba(0,0,0,0.12)'
-              : isAlert
-                ? '0 0 0 3px rgba(220,38,38,0.15), 0 2px 8px rgba(220,38,38,0.12)'
-                : isStale
-                  ? '0 0 0 3px rgba(252,165,165,0.25), 0 2px 8px rgba(239,68,68,0.10)'
+              ? '0 8px 24px rgba(0,0,0,0.18)'
+              : S
+                ? '0 0 0 3px rgba(239,68,68,0.30), 0 4px 16px rgba(220,38,38,0.35)'
+                : isAlert
+                  ? '0 0 0 3px rgba(220,38,38,0.15), 0 2px 8px rgba(220,38,38,0.12)'
                   : undefined,
           }}
           onDoubleClick={() => onEdit(card)}
         >
+          {/* Badge de alerta manual */}
           {isAlert && (
             <div className="absolute top-0 right-0 flex items-center gap-1 bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-bl-lg">
               <BellRing size={9} className="animate-bounce" />
               ALERTA
             </div>
           )}
+          {/* Badge +24h — branco sobre vermelho quando stale sem alert; vermelho quando ambos */}
           {isStale && !isAlert && (
-            <div className="absolute top-0 right-0 flex items-center gap-1 bg-red-400 text-white text-[9px] font-bold px-2 py-0.5 rounded-bl-lg">
+            <div className="absolute top-0 right-0 flex items-center gap-1 bg-white text-red-500 text-[9px] font-bold px-2 py-0.5 rounded-bl-lg shadow-sm">
               <Clock size={9} />
               +24H SEM UPDATE
             </div>
@@ -320,19 +325,32 @@ function KanbanCard({ card, index, onEdit, onDelete, clients, users }) {
               +24H
             </div>
           )}
+
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               {empresa
-                ? <p className="text-sm font-bold text-gray-900 leading-snug truncate">{empresa.name}</p>
-                : <p className="text-sm font-bold text-gray-900 leading-snug">{card.title}</p>
+                ? <p className="text-sm font-bold leading-snug truncate" style={{ color: S ? '#fff' : '#111827' }}>{empresa.name}</p>
+                : <p className="text-sm font-bold leading-snug"         style={{ color: S ? '#fff' : '#111827' }}>{card.title}</p>
               }
               {empresa && (
-                <p className="text-xs text-gray-400 mt-0.5 leading-snug">{card.title}</p>
+                <p className="text-xs mt-0.5 leading-snug" style={{ color: S ? 'rgba(255,255,255,0.75)' : '#9ca3af' }}>{card.title}</p>
               )}
             </div>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-              <button onClick={() => onEdit(card)} className="p-1 rounded text-gray-300 hover:text-gray-700 hover:bg-gray-100 transition-all"><Pencil size={12} /></button>
-              <button onClick={() => setConfirmDelete(true)} className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all"><Trash2 size={12} /></button>
+              <button
+                onClick={() => onEdit(card)}
+                className="p-1 rounded transition-all"
+                style={{ color: S ? 'rgba(255,255,255,0.55)' : '#d1d5db' }}
+                onMouseEnter={e => { e.currentTarget.style.color = S ? '#fff' : '#374151'; e.currentTarget.style.background = S ? 'rgba(255,255,255,0.15)' : '#f3f4f6' }}
+                onMouseLeave={e => { e.currentTarget.style.color = S ? 'rgba(255,255,255,0.55)' : '#d1d5db'; e.currentTarget.style.background = 'transparent' }}
+              ><Pencil size={12} /></button>
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="p-1 rounded transition-all"
+                style={{ color: S ? 'rgba(255,255,255,0.55)' : '#d1d5db' }}
+                onMouseEnter={e => { e.currentTarget.style.color = S ? '#fff' : '#ef4444'; e.currentTarget.style.background = S ? 'rgba(255,255,255,0.15)' : '#fef2f2' }}
+                onMouseLeave={e => { e.currentTarget.style.color = S ? 'rgba(255,255,255,0.55)' : '#d1d5db'; e.currentTarget.style.background = 'transparent' }}
+              ><Trash2 size={12} /></button>
             </div>
           </div>
 
@@ -344,34 +362,48 @@ function KanbanCard({ card, index, onEdit, onDelete, clients, users }) {
                 </span>
               ))}
               {responsibles.length === 1 && (
-                <span className="text-[11px] text-gray-400 ml-0.5">{responsibles[0].name.split(' ')[0]}</span>
+                <span className="text-[11px] ml-0.5" style={{ color: S ? 'rgba(255,255,255,0.75)' : '#9ca3af' }}>
+                  {responsibles[0].name.split(' ')[0]}
+                </span>
               )}
             </div>
           )}
 
           {(lastObs || isStale) && (
-            <div className="flex flex-col gap-0.5 pt-1.5 border-t" style={{ borderColor: (isAlert || isStale) ? 'rgba(252,165,165,0.4)' : '#f3f4f6' }}>
+            <div className="flex flex-col gap-0.5 pt-1.5 border-t" style={{ borderColor: S ? 'rgba(255,255,255,0.22)' : (isAlert || isStale) ? 'rgba(252,165,165,0.4)' : '#f3f4f6' }}>
               <div className="flex items-center gap-1.5">
-                <CalendarDays size={10} className={isStale ? 'text-red-300 flex-shrink-0' : 'text-gray-300 flex-shrink-0'} />
+                <CalendarDays size={10} className="flex-shrink-0" style={{ color: S ? 'rgba(255,255,255,0.55)' : isStale ? '#fca5a5' : '#d1d5db' }} />
                 {lastObs
-                  ? <span className={`text-[10px] ${isStale ? 'text-red-400 font-medium' : 'text-gray-400'}`}>Atualizado em {formatDate(lastObs.date)}</span>
-                  : <span className="text-[10px] text-red-400 font-medium">
+                  ? <span className="text-[10px] font-medium" style={{ color: S ? 'rgba(255,255,255,0.85)' : isStale ? '#f87171' : '#9ca3af' }}>
+                      Atualizado em {formatDate(lastObs.date)}
+                    </span>
+                  : <span className="text-[10px] font-medium" style={{ color: S ? 'rgba(255,255,255,0.85)' : '#f87171' }}>
                       Criado em {formatDate(card.createdAt?.split('T')[0])} · sem atualizações
                     </span>
                 }
               </div>
               {lastObs?.text && (
-                <p className="text-[11px] text-gray-400 leading-relaxed line-clamp-2 pl-3.5">{lastObs.text}</p>
+                <p className="text-[11px] leading-relaxed line-clamp-2 pl-3.5" style={{ color: S ? 'rgba(255,255,255,0.70)' : '#9ca3af' }}>
+                  {lastObs.text}
+                </p>
               )}
             </div>
           )}
 
           {confirmDelete && (
-            <div className="flex items-center justify-between pt-1 border-t border-red-100 mt-1">
-              <span className="text-xs text-red-500 font-medium">Excluir card?</span>
+            <div className="flex items-center justify-between pt-1 border-t mt-1" style={{ borderColor: S ? 'rgba(255,255,255,0.22)' : '#fee2e2' }}>
+              <span className="text-xs font-medium" style={{ color: S ? '#fff' : '#ef4444' }}>Excluir card?</span>
               <div className="flex gap-1.5">
-                <button onClick={() => setConfirmDelete(false)} className="text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-all">Não</button>
-                <button onClick={() => onDelete(card.id)} className="text-xs px-2 py-1 rounded bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-all">Sim</button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="text-xs px-2 py-1 rounded border transition-all"
+                  style={S ? { borderColor: 'rgba(255,255,255,0.35)', color: '#fff', background: 'transparent' } : { borderColor: '#e5e7eb', color: '#6b7280' }}
+                >Não</button>
+                <button
+                  onClick={() => onDelete(card.id)}
+                  className="text-xs px-2 py-1 rounded border transition-all"
+                  style={S ? { borderColor: '#fff', color: '#ef4444', background: '#fff' } : { borderColor: '#fecaca', color: '#dc2626', background: '#fef2f2' }}
+                >Sim</button>
               </div>
             </div>
           )}
