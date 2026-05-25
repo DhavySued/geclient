@@ -3,10 +3,17 @@ ALTER TABLE societario_cards
 
 UPDATE societario_cards SET updated_at = created_at WHERE updated_at IS NULL;
 
+-- Só atualiza updated_at quando o conteúdo muda (não em reordenação/drag-drop)
 CREATE OR REPLACE FUNCTION set_societario_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
-  NEW.updated_at = now();
+  IF (NEW.title          IS DISTINCT FROM OLD.title)          OR
+     (NEW.client_id      IS DISTINCT FROM OLD.client_id)      OR
+     (NEW.observations   IS DISTINCT FROM OLD.observations)   OR
+     (NEW.responsible_ids IS DISTINCT FROM OLD.responsible_ids) OR
+     (NEW.alert          IS DISTINCT FROM OLD.alert)          THEN
+    NEW.updated_at = now();
+  END IF;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
