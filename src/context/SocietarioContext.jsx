@@ -20,6 +20,7 @@ function rowToCard(row) {
     columnId:       row.column_id,
     position:       row.position,
     createdAt:      row.created_at,
+    alert:          row.alert ?? false,
   }
 }
 
@@ -48,14 +49,14 @@ export function SocietarioProvider({ children }) {
     return () => { supabase.removeChannel(ch) }
   }, [fetchCards])
 
-  const addCard = useCallback(async ({ title, clientId, observations, responsibleIds, columnId }) => {
+  const addCard = useCallback(async ({ title, clientId, observations, responsibleIds, columnId, alert }) => {
     const maxPos = cards
       .filter(c => c.columnId === columnId)
       .reduce((m, c) => Math.max(m, c.position), -1)
 
     const { data, error } = await supabase
       .from('societario_cards')
-      .insert({ title, client_id: clientId || null, observations: observations ?? [], responsible_ids: responsibleIds ?? [], column_id: columnId, position: maxPos + 1 })
+      .insert({ title, client_id: clientId || null, observations: observations ?? [], responsible_ids: responsibleIds ?? [], column_id: columnId, position: maxPos + 1, alert: alert ?? false })
       .select()
       .single()
     if (error) return { error }
@@ -80,6 +81,7 @@ export function SocietarioProvider({ children }) {
     if ('responsibleIds' in updates) payload.responsible_ids = updates.responsibleIds ?? []
     if ('columnId'       in updates) payload.column_id       = updates.columnId
     if ('position'       in updates) payload.position        = updates.position
+    if ('alert'          in updates) payload.alert           = updates.alert
 
     const { error } = await supabase.from('societario_cards').update(payload).eq('id', id)
     if (error) return { error }

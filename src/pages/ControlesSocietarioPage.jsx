@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { Scale, Plus, X, Pencil, Trash2, Loader2, Building2, AlertTriangle, Users, ChevronDown, CalendarDays } from 'lucide-react'
+import { Scale, Plus, X, Pencil, Trash2, Loader2, Building2, AlertTriangle, Users, ChevronDown, CalendarDays, BellRing } from 'lucide-react'
 import { useSocietario } from '../context/SocietarioContext'
 import { useClients } from '../context/ClientsContext'
 import { useUsers } from '../context/UsersContext'
@@ -12,7 +12,7 @@ const COLUMNS = [
   { id: 'finalizado',    label: 'Finalizado',        accent: { border: 'rgba(16,185,129,0.55)', bg: 'rgba(16,185,129,0.05)', pill: 'rgba(16,185,129,0.12)', text: '#059669' } },
 ]
 
-const EMPTY_FORM = { title: '', clientId: '', observations: [], responsibleIds: [] }
+const EMPTY_FORM = { title: '', clientId: '', observations: [], responsibleIds: [], alert: false }
 
 function today() { return new Date().toISOString().split('T')[0] }
 
@@ -136,9 +136,23 @@ function CardModal({ initial, columnId, onSave, onClose, saving, saveError, clie
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
           <h2 className="text-sm font-semibold text-gray-900">{initial ? 'Editar card' : 'Novo card'}</h2>
-          {!saving && (
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition-colors"><X size={16} /></button>
-          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => set('alert', !form.alert)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
+              style={form.alert
+                ? { background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff', borderColor: '#b91c1c', boxShadow: '0 0 12px rgba(220,38,38,0.5)' }
+                : { background: '#fff', color: '#9ca3af', borderColor: '#e5e7eb' }
+              }
+            >
+              <BellRing size={13} className={form.alert ? 'animate-bounce' : ''} />
+              {form.alert ? 'Alerta ativo' : 'Ativar alerta'}
+            </button>
+            {!saving && (
+              <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition-colors"><X size={16} /></button>
+            )}
+          </div>
         </div>
 
         <form onSubmit={submit} className="flex flex-col flex-1 min-h-0">
@@ -255,6 +269,7 @@ function KanbanCard({ card, index, onEdit, onDelete, clients, users }) {
   const empresa      = clients.find(c => c.id === card.clientId)
   const responsibles = users.filter(u => card.responsibleIds?.includes(u.id))
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const isAlert = card.alert ?? false
 
   // Observação mais recente
   const lastObs = (card.observations ?? [])
@@ -268,10 +283,26 @@ function KanbanCard({ card, index, onEdit, onDelete, clients, users }) {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          className="bg-white rounded-xl border border-gray-200 shadow-sm px-3.5 py-3 flex flex-col gap-2 group transition-shadow cursor-pointer"
-          style={{ ...provided.draggableProps.style, boxShadow: snapshot.isDragging ? '0 8px 24px rgba(0,0,0,0.12)' : undefined }}
+          className="rounded-xl border px-3.5 py-3 flex flex-col gap-2 group transition-all cursor-pointer relative overflow-hidden"
+          style={{
+            ...provided.draggableProps.style,
+            background: isAlert ? '#fff5f5' : '#fff',
+            borderColor: isAlert ? '#dc2626' : '#e5e7eb',
+            borderWidth: isAlert ? 2 : 1,
+            boxShadow: snapshot.isDragging
+              ? '0 8px 24px rgba(0,0,0,0.12)'
+              : isAlert
+                ? '0 0 0 3px rgba(220,38,38,0.15), 0 2px 8px rgba(220,38,38,0.12)'
+                : undefined,
+          }}
           onDoubleClick={() => onEdit(card)}
         >
+          {isAlert && (
+            <div className="absolute top-0 right-0 flex items-center gap-1 bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-bl-lg">
+              <BellRing size={9} className="animate-bounce" />
+              ALERTA
+            </div>
+          )}
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               {empresa
@@ -503,6 +534,7 @@ export default function ControlesSocietarioPage() {
             clientId:       modal.card.clientId ?? '',
             observations:   modal.card.observations ?? [],
             responsibleIds: modal.card.responsibleIds ?? [],
+            alert:          modal.card.alert ?? false,
           } : undefined}
           columnId={modal.columnId}
           onSave={handleSave}
