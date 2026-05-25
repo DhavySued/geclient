@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAudit } from './AuditContext'
+import { useAuth } from './AuthContext'
 
 const SocietarioContext = createContext(null)
 
@@ -8,6 +9,17 @@ const COLUMN_LABELS = {
   ordem_servico: 'Ordem de Serviço',
   iniciado:      'Iniciado',
   finalizado:    'Finalizado',
+}
+
+function makeEntry(currentUser, action, extra = {}) {
+  return {
+    id:       crypto.randomUUID(),
+    at:       new Date().toISOString(),
+    userId:   currentUser?.id   ?? null,
+    userName: currentUser?.name ?? 'Desconhecido',
+    action,
+    ...extra,
+  }
 }
 
 function rowToCard(row) {
@@ -21,6 +33,7 @@ function rowToCard(row) {
     position:       row.position,
     createdAt:      row.created_at,
     updatedAt:      row.updated_at ?? row.created_at,
+    cardHistory:    row.card_history ?? [],
     alert:          row.alert ?? false,
   }
 }
@@ -28,7 +41,8 @@ function rowToCard(row) {
 export function SocietarioProvider({ children }) {
   const [cards, setCards]     = useState([])
   const [loading, setLoading] = useState(true)
-  const { logAudit } = useAudit()
+  const { logAudit }    = useAudit()
+  const { currentUser } = useAuth()
 
   const fetchCards = useCallback(async () => {
     const { data, error } = await supabase
@@ -55,9 +69,23 @@ export function SocietarioProvider({ children }) {
       .filter(c => c.columnId === columnId)
       .reduce((m, c) => Math.max(m, c.position), -1)
 
+    const initialHistory = [makeEntry(currentUser, 'criado', {
+      toColumn:      columnId,
+      toColumnLabel: COLUMN_LABELS[columnId] ?? columnId,
+    })]
+
     const { data, error } = await supabase
       .from('societario_cards')
-      .insert({ title, client_id: clientId || null, observations: observations ?? [], responsible_ids: responsibleIds ?? [], column_id: columnId, position: maxPos + 1, alert: alert ?? false })
+      .insert({
+        title,
+        client_id:       clientId || null,
+        observations:    observations ?? [],
+        responsible_ids: responsibleIds ?? [],
+        column_id:       columnId,
+        position:        maxPos + 1,
+        alert:           alert ?? false,
+        card_history:    initialHistory,
+      })
       .select()
       .single()
     if (error) return { error }
@@ -72,7 +100,7 @@ export function SocietarioProvider({ children }) {
       changes:    { coluna: COLUMN_LABELS[columnId] ?? columnId },
     })
     return { error: null }
-  }, [cards, logAudit])
+  }, [cards, currentUser, logAudit])
 
   const updateCard = useCallback(async (id, updates) => {
     const payload = {}
@@ -84,12 +112,18 @@ export function SocietarioProvider({ children }) {
     if ('position'       in updates) payload.position        = updates.position
     if ('alert'          in updates) payload.alert           = updates.alert
 
+    const card = cards.find(c => c.id === id)
+    const historyEntry = makeEntry(currentUser, 'atualizado', {
+      toColumn:      card?.columnId,
+      toColumnLabel: COLUMN_LABELS[card?.columnId] ?? card?.columnId,
+    })
+    const newHistory = [...(card?.cardHistory ?? []), historyEntry]
+    payload.card_history = newHistory
+
     const { error } = await supabase.from('societario_cards').update(payload).eq('id', id)
     if (error) return { error }
 
-    setCards(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))
-
-    const card = cards.find(c => c.id === id)
+    setCards(prev => prev.map(c => c.id === id ? { ...c, ...updates, cardHistory: newHistory } : c))
     logAudit({
       action:     'update',
       menu:       'controle-societario',
@@ -99,7 +133,7 @@ export function SocietarioProvider({ children }) {
       changes:    Object.keys(payload).reduce((acc, k) => ({ ...acc, [k]: payload[k] }), {}),
     })
     return { error: null }
-  }, [cards, logAudit])
+  }, [cards, currentUser, logAudit])
 
   const deleteCard = useCallback(async (id) => {
     const card = cards.find(c => c.id === id)
@@ -119,23 +153,47 @@ export function SocietarioProvider({ children }) {
   }, [cards, logAudit])
 
   const moveCard = useCallback(async (cardId, destColumnId, destIndex) => {
+    // Pre-compute fora do updater para evitar duplicação no StrictMode
+    const entryId = crypto.randomUUID()
+    const entryAt = new Date().toISOString()
+
     setCards(prev => {
       const card = prev.find(c => c.id === cardId)
       if (!card) return prev
+
+      const isColumnChange = card.columnId !== destColumnId
+      const newHistory = isColumnChange
+        ? [...(card.cardHistory ?? []), {
+            id:              entryId,
+            at:              entryAt,
+            userId:          currentUser?.id   ?? null,
+            userName:        currentUser?.name ?? 'Desconhecido',
+            action:          'movido',
+            fromColumn:      card.columnId,
+            fromColumnLabel: COLUMN_LABELS[card.columnId] ?? card.columnId,
+            toColumn:        destColumnId,
+            toColumnLabel:   COLUMN_LABELS[destColumnId] ?? destColumnId,
+          }]
+        : card.cardHistory ?? []
+
       const without  = prev.filter(c => c.id !== cardId)
       const destList = without
         .filter(c => c.columnId === destColumnId)
         .sort((a, b) => a.position - b.position)
-      destList.splice(destIndex, 0, { ...card, columnId: destColumnId })
+      destList.splice(destIndex, 0, { ...card, columnId: destColumnId, cardHistory: newHistory })
 
       const updates = destList.map((c, i) => ({ ...c, position: i }))
       const rest    = without.filter(c => c.columnId !== destColumnId)
 
       Promise.all(
-        updates.map(c => supabase.from('societario_cards').update({ column_id: c.columnId, position: c.position }).eq('id', c.id))
+        updates.map(c => {
+          const p = { column_id: c.columnId, position: c.position }
+          if (c.id === cardId && isColumnChange) p.card_history = newHistory
+          return supabase.from('societario_cards').update(p).eq('id', c.id)
+        })
       ).catch(err => console.error('Societario move error:', err))
 
-      if (card.columnId !== destColumnId) {
+      if (isColumnChange) {
         logAudit({
           action:     'update',
           menu:       'controle-societario',
@@ -151,7 +209,7 @@ export function SocietarioProvider({ children }) {
 
       return [...rest, ...updates].sort((a, b) => a.position - b.position)
     })
-  }, [logAudit])
+  }, [currentUser, logAudit])
 
   return (
     <SocietarioContext.Provider value={{ cards, loading, addCard, updateCard, deleteCard, moveCard }}>

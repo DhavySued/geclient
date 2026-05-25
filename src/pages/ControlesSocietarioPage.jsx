@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { Scale, Plus, X, Pencil, Trash2, Loader2, Building2, AlertTriangle, Users, ChevronDown, CalendarDays, BellRing, Clock } from 'lucide-react'
+import { Scale, Plus, X, Pencil, Trash2, Loader2, Building2, AlertTriangle, Users, ChevronDown, CalendarDays, BellRing, Clock, History } from 'lucide-react'
 import { useSocietario } from '../context/SocietarioContext'
 import { useClients } from '../context/ClientsContext'
 import { useUsers } from '../context/UsersContext'
@@ -24,6 +24,22 @@ function formatDate(iso) {
 
 function getInitials(name = '') {
   return name.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
+}
+
+function formatDateTime(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  return `${dd}/${mm} às ${hh}:${mi}`
+}
+
+function historyLabel(entry) {
+  if (entry.action === 'criado')    return `Criado em ${entry.toColumnLabel}`
+  if (entry.action === 'movido')    return `Movido para ${entry.toColumnLabel}`
+  return 'Atualizado'
 }
 
 /* ── Seletor de responsáveis ── */
@@ -98,8 +114,11 @@ function UserSelect({ users, value = [], onChange }) {
 
 /* ── Modal ── */
 function CardModal({ initial, columnId, onSave, onClose, saving, saveError, clients, users }) {
-  const [form, setForm] = useState(initial ?? EMPTY_FORM)
-  const [errors, setErrors] = useState({})
+  const [form, setForm]           = useState(initial ?? EMPTY_FORM)
+  const [errors, setErrors]       = useState({})
+  const [showHistory, setShowHistory] = useState(false)
+
+  const cardHistory = [...(initial?.cardHistory ?? [])].sort((a, b) => b.at.localeCompare(a.at))
 
   function set(k, v) { setForm(p => ({ ...p, [k]: v })); setErrors(p => ({ ...p, [k]: '' })) }
 
@@ -242,6 +261,36 @@ function CardModal({ initial, columnId, onSave, onClose, saving, saveError, clie
             </div>
           </div>
 
+          {/* Histórico */}
+          {cardHistory.length > 0 && (
+            <div className="flex-shrink-0 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setShowHistory(h => !h)}
+                className="w-full flex items-center gap-2 px-5 py-2.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <History size={11} />
+                <span className="font-medium">Histórico</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-bold text-[10px]">{cardHistory.length}</span>
+                <ChevronDown size={11} className={`ml-auto transition-transform ${showHistory ? 'rotate-180' : ''}`} />
+              </button>
+              {showHistory && (
+                <div className="max-h-36 overflow-y-auto scrollbar-thin flex flex-col gap-0 px-5 pb-3">
+                  {cardHistory.map((entry, i) => (
+                    <div key={entry.id ?? i} className="flex items-start gap-2.5 py-1.5 border-b border-gray-50 last:border-0">
+                      <div className="w-1.5 h-1.5 rounded-full bg-gray-300 mt-1.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[11px] text-gray-700 font-medium">{historyLabel(entry)}</span>
+                        <span className="text-[11px] text-gray-400"> · por {entry.userName?.split(' ')[0] ?? '—'}</span>
+                        <div className="text-[10px] text-gray-400 mt-0.5">{formatDateTime(entry.at)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Footer */}
           <div className="px-5 py-3 border-t border-gray-100 flex-shrink-0 flex flex-col gap-2">
             {saveError && (
@@ -270,14 +319,21 @@ function KanbanCard({ card, index, onEdit, onDelete, clients, users }) {
   const responsibles = users.filter(u => card.responsibleIds?.includes(u.id))
   const [confirmDelete, setConfirmDelete] = useState(false)
   const isAlert = card.alert ?? false
-  const isStale = card.columnId !== 'finalizado'
-    && !!card.updatedAt
-    && (Date.now() - new Date(card.updatedAt).getTime() > 24 * 60 * 60 * 1000)
+
+  // Última entrada do histórico automático
+  const lastHistory = [...(card.cardHistory ?? [])]
+    .sort((a, b) => b.at.localeCompare(a.at))[0] ?? null
+
+  // Timer de stale: usa o timestamp do histórico, fallback para created_at
+  const staleRef = lastHistory?.at ?? card.createdAt
+  const isStale  = card.columnId !== 'finalizado'
+    && !!staleRef
+    && (Date.now() - new Date(staleRef).getTime() > 24 * 60 * 60 * 1000)
 
   // Tema: vermelho sólido quando stale sem alerta manual; alerta leve quando alert
   const S = isStale && !isAlert
 
-  // Observação mais recente
+  // Observação mais recente (para exibir o texto no card)
   const lastObs = (card.observations ?? [])
     .filter(o => o.date)
     .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null
@@ -369,19 +425,16 @@ function KanbanCard({ card, index, onEdit, onDelete, clients, users }) {
             </div>
           )}
 
-          {(lastObs || isStale) && (
+          {(lastHistory || lastObs) && (
             <div className="flex flex-col gap-0.5 pt-1.5 border-t" style={{ borderColor: S ? 'rgba(255,255,255,0.22)' : (isAlert || isStale) ? 'rgba(252,165,165,0.4)' : '#f3f4f6' }}>
-              <div className="flex items-center gap-1.5">
-                <CalendarDays size={10} className="flex-shrink-0" style={{ color: S ? 'rgba(255,255,255,0.55)' : isStale ? '#fca5a5' : '#d1d5db' }} />
-                {lastObs
-                  ? <span className="text-[10px] font-medium" style={{ color: S ? 'rgba(255,255,255,0.85)' : isStale ? '#f87171' : '#9ca3af' }}>
-                      Atualizado em {formatDate(lastObs.date)}
-                    </span>
-                  : <span className="text-[10px] font-medium" style={{ color: S ? 'rgba(255,255,255,0.85)' : '#f87171' }}>
-                      Criado em {formatDate(card.createdAt?.split('T')[0])} · sem atualizações
-                    </span>
-                }
-              </div>
+              {lastHistory && (
+                <div className="flex items-center gap-1.5">
+                  <Clock size={10} className="flex-shrink-0" style={{ color: S ? 'rgba(255,255,255,0.55)' : isStale ? '#fca5a5' : '#d1d5db' }} />
+                  <span className="text-[10px] font-medium truncate" style={{ color: S ? 'rgba(255,255,255,0.85)' : isStale ? '#f87171' : '#9ca3af' }}>
+                    {formatDateTime(lastHistory.at)} · {historyLabel(lastHistory)} · {lastHistory.userName?.split(' ')[0]}
+                  </span>
+                </div>
+              )}
               {lastObs?.text && (
                 <p className="text-[11px] leading-relaxed line-clamp-2 pl-3.5" style={{ color: S ? 'rgba(255,255,255,0.70)' : '#9ca3af' }}>
                   {lastObs.text}
@@ -589,6 +642,7 @@ export default function ControlesSocietarioPage() {
             observations:   modal.card.observations ?? [],
             responsibleIds: modal.card.responsibleIds ?? [],
             alert:          modal.card.alert ?? false,
+            cardHistory:    modal.card.cardHistory ?? [],
           } : undefined}
           columnId={modal.columnId}
           onSave={handleSave}
