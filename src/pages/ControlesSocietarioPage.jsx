@@ -272,7 +272,7 @@ function KanbanCard({ card, index, onEdit, onDelete, clients, users }) {
   const isAlert = card.alert ?? false
   const isStale = card.columnId !== 'finalizado'
     && !!card.updatedAt
-    && (Date.now() - new Date(card.updatedAt).getTime() > 24 * 60 * 60 * 1000)
+    && (Date.now() - new Date(card.updatedAt).getTime() > 0) // TEMP: revert to 24 * 60 * 60 * 1000
 
   // Tema: vermelho sólido quando stale sem alerta manual; alerta leve quando alert
   const S = isStale && !isAlert
