@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { Scale, Plus, X, Pencil, Trash2, Loader2, Building2, AlertTriangle, Users, ChevronDown, CalendarDays, BellRing } from 'lucide-react'
+import { Scale, Plus, X, Pencil, Trash2, Loader2, Building2, AlertTriangle, Users, ChevronDown, CalendarDays, BellRing, Clock } from 'lucide-react'
 import { useSocietario } from '../context/SocietarioContext'
 import { useClients } from '../context/ClientsContext'
 import { useUsers } from '../context/UsersContext'
@@ -270,6 +270,9 @@ function KanbanCard({ card, index, onEdit, onDelete, clients, users }) {
   const responsibles = users.filter(u => card.responsibleIds?.includes(u.id))
   const [confirmDelete, setConfirmDelete] = useState(false)
   const isAlert = card.alert ?? false
+  const isStale = card.columnId !== 'finalizado'
+    && !!card.updatedAt
+    && (Date.now() - new Date(card.updatedAt).getTime() > 24 * 60 * 60 * 1000)
 
   // Observação mais recente
   const lastObs = (card.observations ?? [])
@@ -286,14 +289,16 @@ function KanbanCard({ card, index, onEdit, onDelete, clients, users }) {
           className="rounded-xl border px-3.5 py-3 flex flex-col gap-2 group transition-all cursor-pointer relative overflow-hidden"
           style={{
             ...provided.draggableProps.style,
-            background: isAlert ? '#fff5f5' : '#fff',
-            borderColor: isAlert ? '#dc2626' : '#e5e7eb',
-            borderWidth: isAlert ? 2 : 1,
+            background: (isAlert || isStale) ? '#fff5f5' : '#fff',
+            borderColor: isAlert ? '#dc2626' : isStale ? '#fca5a5' : '#e5e7eb',
+            borderWidth: (isAlert || isStale) ? 2 : 1,
             boxShadow: snapshot.isDragging
               ? '0 8px 24px rgba(0,0,0,0.12)'
               : isAlert
                 ? '0 0 0 3px rgba(220,38,38,0.15), 0 2px 8px rgba(220,38,38,0.12)'
-                : undefined,
+                : isStale
+                  ? '0 0 0 3px rgba(252,165,165,0.25), 0 2px 8px rgba(239,68,68,0.10)'
+                  : undefined,
           }}
           onDoubleClick={() => onEdit(card)}
         >
@@ -301,6 +306,18 @@ function KanbanCard({ card, index, onEdit, onDelete, clients, users }) {
             <div className="absolute top-0 right-0 flex items-center gap-1 bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-bl-lg">
               <BellRing size={9} className="animate-bounce" />
               ALERTA
+            </div>
+          )}
+          {isStale && !isAlert && (
+            <div className="absolute top-0 right-0 flex items-center gap-1 bg-red-400 text-white text-[9px] font-bold px-2 py-0.5 rounded-bl-lg">
+              <Clock size={9} />
+              +24H SEM UPDATE
+            </div>
+          )}
+          {isStale && isAlert && (
+            <div className="absolute top-0 left-0 flex items-center gap-1 bg-red-400 text-white text-[9px] font-bold px-2 py-0.5 rounded-br-lg">
+              <Clock size={9} />
+              +24H
             </div>
           )}
           <div className="flex items-start justify-between gap-2">
@@ -332,13 +349,18 @@ function KanbanCard({ card, index, onEdit, onDelete, clients, users }) {
             </div>
           )}
 
-          {lastObs && (
-            <div className="flex flex-col gap-0.5 pt-1.5 border-t border-gray-100">
+          {(lastObs || isStale) && (
+            <div className="flex flex-col gap-0.5 pt-1.5 border-t" style={{ borderColor: (isAlert || isStale) ? 'rgba(252,165,165,0.4)' : '#f3f4f6' }}>
               <div className="flex items-center gap-1.5">
-                <CalendarDays size={10} className="text-gray-300 flex-shrink-0" />
-                <span className="text-[10px] text-gray-400">Atualizado em {formatDate(lastObs.date)}</span>
+                <CalendarDays size={10} className={isStale ? 'text-red-300 flex-shrink-0' : 'text-gray-300 flex-shrink-0'} />
+                {lastObs
+                  ? <span className={`text-[10px] ${isStale ? 'text-red-400 font-medium' : 'text-gray-400'}`}>Atualizado em {formatDate(lastObs.date)}</span>
+                  : <span className="text-[10px] text-red-400 font-medium">
+                      Criado em {formatDate(card.createdAt?.split('T')[0])} · sem atualizações
+                    </span>
+                }
               </div>
-              {lastObs.text && (
+              {lastObs?.text && (
                 <p className="text-[11px] text-gray-400 leading-relaxed line-clamp-2 pl-3.5">{lastObs.text}</p>
               )}
             </div>

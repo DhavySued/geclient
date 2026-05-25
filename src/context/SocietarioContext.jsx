@@ -20,6 +20,7 @@ function rowToCard(row) {
     columnId:       row.column_id,
     position:       row.position,
     createdAt:      row.created_at,
+    updatedAt:      row.updated_at ?? row.created_at,
     alert:          row.alert ?? false,
   }
 }
