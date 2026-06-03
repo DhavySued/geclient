@@ -111,7 +111,7 @@ export default function FiscalPage({ onOpenClient }) {
     levelFilter, selectedMonth, allStatusIds,
     { regimeFilter, tipoFilter, nameSearch }
   )
-  const { getRecord, loading: recordsLoading } = useFiscalRecords()
+  const { getRecord, getEffectiveRecord, loading: recordsLoading } = useFiscalRecords()
   const { fiscalItems }                        = useFiscalItemsCtx()
   const { regimeItems, conditionItems, tipoItems } = useFiscalConfig()
 
@@ -510,7 +510,7 @@ export default function FiscalPage({ onOpenClient }) {
                         key={client.id}
                         client={client}
                         index={index}
-                        record={getRecord(client.id, selectedMonth)}
+                        record={getEffectiveRecord(client.id, selectedMonth)}
                         onOpen={c => onOpenClient(c, selectedMonth)}
                         isDragDisabled={sortAlpha}
                       />

@@ -126,6 +126,19 @@ export function FiscalRecordsProvider({ children }) {
   }
 
   /**
+   * Igual a getRecord, mas quando não há registro para o mês atual
+   * herda o registro do mês anterior mais recente (status + checks + pendingTaxes).
+   */
+  function getEffectiveRecord(clientId, month) {
+    const current = records[clientId]?.[month]
+    if (current) return current
+    const byMonth = records[clientId] ?? {}
+    const prevMonths = Object.keys(byMonth).filter(m => m < month).sort()
+    if (!prevMonths.length) return null
+    return byMonth[prevMonths[prevMonths.length - 1]] ?? null
+  }
+
+  /**
    * Retorna todos os registros mensais de um cliente (snapshot de cada mês),
    * ordenados do mais recente ao mais antigo.
    */
@@ -253,6 +266,7 @@ export function FiscalRecordsProvider({ children }) {
       records,
       loading,
       getRecord,
+      getEffectiveRecord,
       getClientHistory,
       getStatusHistory,
       upsertRecord,
