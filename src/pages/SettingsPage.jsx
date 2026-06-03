@@ -269,6 +269,30 @@ export default function SettingsPage() {
           description="Mostra no calendário as tarefas sem data de vencimento definida."
           disabled={!canEdit}
         />
+        <div className="flex flex-col gap-1.5">
+          <div>
+            <p className="text-sm font-medium text-gray-700">Competência padrão dos checklists</p>
+            <p className="text-xs text-gray-400 mt-0.5">Mês que abre por padrão no DP e Parcelamento. Deixe em branco para usar sempre o mês atual.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="month"
+              value={settings.defaultYearMonth ?? ''}
+              onChange={e => update({ defaultYearMonth: e.target.value })}
+              disabled={!canEdit}
+              className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-brand-500/60 transition-colors disabled:opacity-50"
+            />
+            {settings.defaultYearMonth && (
+              <button
+                onClick={() => update({ defaultYearMonth: '' })}
+                disabled={!canEdit}
+                className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                Usar mês atual
+              </button>
+            )}
+          </div>
+        </div>
       </section>
 
       {/* Itens Fiscais */}

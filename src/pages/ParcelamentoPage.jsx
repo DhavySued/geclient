@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Search, AlertTriangle, X, Settings2, Receipt, Copy, Check, ListFilter } from 'lucide-react'
 import { useClients } from '../context/ClientsContext'
 import { useParcelamento } from '../context/ParcelamentoContext'
+import { useSettings } from '../context/SettingsContext'
 import ParcelamentoBatchModal from '../components/ParcelamentoBatchModal'
 
 const ORGANS = [
@@ -77,8 +78,9 @@ function initials(name = '') {
 export default function ParcelamentoPage() {
   const { clients } = useClients()
   const { getRecord, upsertRecord } = useParcelamento()
+  const { settings } = useSettings()
 
-  const [yearMonth, setYearMonth]         = useState(() => toYearMonth(new Date()))
+  const [yearMonth, setYearMonth]         = useState(() => settings.defaultYearMonth || toYearMonth(new Date()))
   const [search, setSearch]               = useState('')
   const [colFilters, setColFilters]       = useState({})
   const [openCol, setOpenCol]             = useState(null)

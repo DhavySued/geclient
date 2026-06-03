@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Users, Search, CheckCircle2, X, AlertTriangle, ListFilter, Settings2 } from 'lucide-react'
 import { useClients } from '../context/ClientsContext'
 import { useDpRecords } from '../context/DpRecordsContext'
+import { useSettings } from '../context/SettingsContext'
 import DpBatchModal from '../components/DpBatchModal'
 
 const DP_SERVICES = [
@@ -54,7 +55,8 @@ function addMonths(ym, delta) {
 export default function DeptoPessoalPage() {
   const { clients } = useClients()
   const { getRecord, upsertRecord } = useDpRecords()
-  const [yearMonth, setYearMonth] = useState(() => toYearMonth(new Date()))
+  const { settings } = useSettings()
+  const [yearMonth, setYearMonth] = useState(() => settings.defaultYearMonth || toYearMonth(new Date()))
   const [search, setSearch]       = useState('')
   const [colFilters, setColFilters]     = useState({})
   // colFilters: { [key]: { feito: bool, pendente: bool } }
