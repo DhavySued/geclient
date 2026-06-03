@@ -56,7 +56,7 @@ export default function DeptoPessoalPage() {
   const { clients } = useClients()
   const { getRecord, upsertRecord } = useDpRecords()
   const { settings } = useSettings()
-  const [yearMonth, setYearMonth] = useState(() => settings.defaultYearMonth || toYearMonth(new Date()))
+  const [yearMonth, setYearMonth] = useState(() => settings.defaultYearMonthDp || toYearMonth(new Date()))
   const [search, setSearch]       = useState('')
   const [colFilters, setColFilters]     = useState({})
   // colFilters: { [key]: { feito: bool, pendente: bool } }

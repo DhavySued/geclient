@@ -4,7 +4,8 @@ const STORAGE_KEY = 'geclient_settings'
 
 const DEFAULTS = {
   showUndatedInCalendar: true,
-  defaultYearMonth: '',
+  defaultYearMonthDp:           '',
+  defaultYearMonthParcelamento: '',
 }
 
 function load() {

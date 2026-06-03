@@ -5,6 +5,58 @@ import { useFiscalItemsCtx } from '../context/FiscalItemsContext'
 import { useFiscalConfig, REGIMES, TIPOS } from '../context/FiscalConfigContext'
 import { usePermissions } from '../hooks/usePermissions'
 
+// ── MonthYearInput ─────────────────────────────────────────────────────────────
+
+function MonthYearInput({ value, onChange, disabled = false }) {
+  const month = value ? value.slice(5, 7) : ''
+  const year  = value ? value.slice(0, 4) : ''
+
+  function handleMonth(e) {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 2)
+    emit(raw, year)
+  }
+
+  function handleYear(e) {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 4)
+    emit(month, raw)
+  }
+
+  function emit(m, y) {
+    if (m.length === 2 && y.length === 4) {
+      const mn = Math.min(Math.max(parseInt(m, 10), 1), 12)
+      onChange(`${y}-${String(mn).padStart(2, '0')}`)
+    } else {
+      onChange('')
+    }
+  }
+
+  return (
+    <div className={`inline-flex items-center gap-1 border rounded-lg px-3 py-2 bg-gray-50 ${disabled ? 'opacity-50' : 'focus-within:border-brand-400'} border-gray-200 transition-colors`}>
+      <input
+        type="text"
+        inputMode="numeric"
+        placeholder="MM"
+        value={month}
+        onChange={handleMonth}
+        disabled={disabled}
+        maxLength={2}
+        className="w-7 bg-transparent text-sm text-center text-gray-900 outline-none placeholder-gray-300"
+      />
+      <span className="text-gray-400 text-sm select-none">/</span>
+      <input
+        type="text"
+        inputMode="numeric"
+        placeholder="AAAA"
+        value={year}
+        onChange={handleYear}
+        disabled={disabled}
+        maxLength={4}
+        className="w-12 bg-transparent text-sm text-center text-gray-900 outline-none placeholder-gray-300"
+      />
+    </div>
+  )
+}
+
 // ── Toggle ─────────────────────────────────────────────────────────────────────
 
 function Toggle({ checked, onChange, label, description, disabled = false }) {
@@ -269,30 +321,33 @@ export default function SettingsPage() {
           description="Mostra no calendário as tarefas sem data de vencimento definida."
           disabled={!canEdit}
         />
-        <div className="flex flex-col gap-1.5">
-          <div>
-            <p className="text-sm font-medium text-gray-700">Competência padrão dos checklists</p>
-            <p className="text-xs text-gray-400 mt-0.5">Mês que abre por padrão no DP e Parcelamento. Deixe em branco para usar sempre o mês atual.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="month"
-              value={settings.defaultYearMonth ?? ''}
-              onChange={e => update({ defaultYearMonth: e.target.value })}
-              disabled={!canEdit}
-              className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-brand-500/60 transition-colors disabled:opacity-50"
-            />
-            {settings.defaultYearMonth && (
-              <button
-                onClick={() => update({ defaultYearMonth: '' })}
+        {[
+          { label: 'Depto. Pessoal',  key: 'defaultYearMonthDp' },
+          { label: 'Parcelamento',    key: 'defaultYearMonthParcelamento' },
+        ].map(({ label, key }) => (
+          <div key={key} className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Competência padrão — {label}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Deixe em branco para usar o mês atual.</p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <MonthYearInput
+                value={settings[key] ?? ''}
+                onChange={val => update({ [key]: val })}
                 disabled={!canEdit}
-                className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                Usar mês atual
-              </button>
-            )}
+              />
+              {settings[key] && (
+                <button
+                  onClick={() => update({ [key]: '' })}
+                  disabled={!canEdit}
+                  className="text-xs text-gray-400 hover:text-gray-600 transition-colors whitespace-nowrap"
+                >
+                  Mês atual
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        ))}
       </section>
 
       {/* Itens Fiscais */}

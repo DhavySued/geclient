@@ -80,7 +80,7 @@ export default function ParcelamentoPage() {
   const { getRecord, upsertRecord } = useParcelamento()
   const { settings } = useSettings()
 
-  const [yearMonth, setYearMonth]         = useState(() => settings.defaultYearMonth || toYearMonth(new Date()))
+  const [yearMonth, setYearMonth]         = useState(() => settings.defaultYearMonthParcelamento || toYearMonth(new Date()))
   const [search, setSearch]               = useState('')
   const [colFilters, setColFilters]       = useState({})
   const [openCol, setOpenCol]             = useState(null)
