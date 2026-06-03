@@ -35,6 +35,9 @@ export function ClientsProvider({ children }) {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'clients' }, ({ new: row }) => {
         setAllClients(prev => prev.some(c => c.id === row.id) ? prev : [fromDb(row), ...prev])
       })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'clients' }, ({ new: row }) => {
+        setAllClients(prev => prev.map(c => c.id === row.id ? fromDb(row) : c))
+      })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'clients' }, ({ old: row }) => {
         setAllClients(prev => prev.filter(c => c.id !== row.id))
       })
