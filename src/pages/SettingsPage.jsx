@@ -1,5 +1,5 @@
 import { Settings, Calendar, BarChart3, Scale, Users, Briefcase, Store, Plus, Pencil, Trash2, Check, X, Loader2, Lock } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSettings } from '../context/SettingsContext'
 import { useFiscalItemsCtx } from '../context/FiscalItemsContext'
 import { useFiscalConfig, REGIMES, TIPOS } from '../context/FiscalConfigContext'
@@ -8,18 +8,13 @@ import { usePermissions } from '../hooks/usePermissions'
 // ── MonthYearInput ─────────────────────────────────────────────────────────────
 
 function MonthYearInput({ value, onChange, disabled = false }) {
-  const month = value ? value.slice(5, 7) : ''
-  const year  = value ? value.slice(0, 4) : ''
+  const [localMonth, setLocalMonth] = useState(value ? value.slice(5, 7) : '')
+  const [localYear,  setLocalYear]  = useState(value ? value.slice(0, 4) : '')
 
-  function handleMonth(e) {
-    const raw = e.target.value.replace(/\D/g, '').slice(0, 2)
-    emit(raw, year)
-  }
-
-  function handleYear(e) {
-    const raw = e.target.value.replace(/\D/g, '').slice(0, 4)
-    emit(month, raw)
-  }
+  useEffect(() => {
+    setLocalMonth(value ? value.slice(5, 7) : '')
+    setLocalYear(value ? value.slice(0, 4) : '')
+  }, [value])
 
   function emit(m, y) {
     if (m.length === 2 && y.length === 4) {
@@ -30,13 +25,25 @@ function MonthYearInput({ value, onChange, disabled = false }) {
     }
   }
 
+  function handleMonth(e) {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 2)
+    setLocalMonth(raw)
+    emit(raw, localYear)
+  }
+
+  function handleYear(e) {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 4)
+    setLocalYear(raw)
+    emit(localMonth, raw)
+  }
+
   return (
     <div className={`inline-flex items-center gap-1 border rounded-lg px-3 py-2 bg-gray-50 ${disabled ? 'opacity-50' : 'focus-within:border-brand-400'} border-gray-200 transition-colors`}>
       <input
         type="text"
         inputMode="numeric"
         placeholder="MM"
-        value={month}
+        value={localMonth}
         onChange={handleMonth}
         disabled={disabled}
         maxLength={2}
@@ -47,7 +54,7 @@ function MonthYearInput({ value, onChange, disabled = false }) {
         type="text"
         inputMode="numeric"
         placeholder="AAAA"
-        value={year}
+        value={localYear}
         onChange={handleYear}
         disabled={disabled}
         maxLength={4}
