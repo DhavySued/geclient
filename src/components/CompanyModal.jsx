@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Building2, Users, Plus, Trash2, Pencil, Check } from 'lucide-react'
+import { X, Building2, Users, Plus, Trash2, Pencil, Check, Receipt } from 'lucide-react'
 
 const REGIMES = ['Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'MEI']
 const LEVELS  = ['Standard', 'Gold', 'Premium']
@@ -12,11 +12,27 @@ const CX_STATUSES = [
   { value: 'detrator',    label: 'Detrator' },
 ]
 
+const PARCELAMENTO_ORGANS = [
+  { key: 'mei',            label: 'MEI' },
+  { key: 'simples',        label: 'Simples Nacional' },
+  { key: 'receitaFederal', label: 'Receita Federal' },
+  { key: 'pgfn',           label: 'PGFN' },
+  { key: 'sefaz',          label: 'SEFAZ' },
+]
+
+const EMPTY_PARCELAMENTO = {
+  mei:            { active: false, total: '', startMonth: '' },
+  simples:        { active: false, total: '', startMonth: '' },
+  receitaFederal: { active: false, total: '', startMonth: '' },
+  pgfn:           { active: false, total: '', startMonth: '' },
+  sefaz:          { active: false, total: '', startMonth: '' },
+}
+
 const DP_SERVICES = [
   { key: 'adiantamentoFolha', label: 'Adiantamento de Folha' },
   { key: 'folha',             label: 'Folha' },
   { key: 'proLabore',         label: 'Pró-Labore' },
-  { key: 'envioFolha',        label: 'Envio de Folha' },
+  { key: 'envioFolha',        label: 'Esocial' },
   { key: 'inss',              label: 'INSS' },
   { key: 'fgts',              label: 'FGTS' },
   { key: 'autonomoSal',       label: 'Autônomo / SAL' },
@@ -45,6 +61,8 @@ const EMPTY = {
   entryDate: '',
   dpServices: { ...EMPTY_DP },
   dpServicesHistory: [],
+  parcelamento: { ...EMPTY_PARCELAMENTO },
+  parcelamentoHistory: [],
 }
 
 function applyCnpjMask(value) {
@@ -68,6 +86,15 @@ function activeLabels(services) {
   return DP_SERVICES.filter(s => services?.[s.key]).map(s => s.label)
 }
 
+function activeOrganLabels(organs) {
+  return PARCELAMENTO_ORGANS
+    .filter(o => organs?.[o.key]?.active)
+    .map(o => {
+      const cfg = organs?.[o.key]
+      return cfg?.total ? `${o.label} (${cfg.total}x)` : o.label
+    })
+}
+
 function nowYM() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -77,7 +104,8 @@ export default function CompanyModal({ client, onSave, onClose }) {
   const [form, setForm]           = useState(EMPTY)
   const [errors, setErrors]       = useState({})
   const [activeTab, setActiveTab] = useState('geral')
-  const [editingEntry, setEditingEntry] = useState(null) // { yearMonth, services } | null
+  const [editingEntry, setEditingEntry]           = useState(null)
+  const [editingParcelEntry, setEditingParcelEntry] = useState(null)
 
   useEffect(() => {
     if (client) {
@@ -104,6 +132,14 @@ export default function CompanyModal({ client, onSave, onClose }) {
           semMovimentacao:   client.dpServices?.semMovimentacao ?? false,
         },
         dpServicesHistory: client.dpServicesHistory ?? [],
+        parcelamento: {
+          mei:            { active: false, total: '', startMonth: '', ...(client.parcelamento?.mei ?? {}) },
+          simples:        { active: false, total: '', startMonth: '', ...(client.parcelamento?.simples ?? {}) },
+          receitaFederal: { active: false, total: '', startMonth: '', ...(client.parcelamento?.receitaFederal ?? {}) },
+          pgfn:           { active: false, total: '', startMonth: '', ...(client.parcelamento?.pgfn ?? {}) },
+          sefaz:          { active: false, total: '', startMonth: '', ...(client.parcelamento?.sefaz ?? {}) },
+        },
+        parcelamentoHistory: client.parcelamentoHistory ?? [],
       })
     } else {
       setForm(EMPTY)
@@ -111,6 +147,7 @@ export default function CompanyModal({ client, onSave, onClose }) {
     setErrors({})
     setActiveTab('geral')
     setEditingEntry(null)
+    setEditingParcelEntry(null)
   }, [client])
 
   function set(field, value) {
@@ -122,12 +159,70 @@ export default function CompanyModal({ client, onSave, onClose }) {
     setForm(prev => ({ ...prev, dpServices: { ...prev.dpServices, [key]: value } }))
   }
 
+  function setParcelamento(organKey, field, value) {
+    setForm(prev => ({
+      ...prev,
+      parcelamento: {
+        ...prev.parcelamento,
+        [organKey]: {
+          ...((prev.parcelamento ?? {})[organKey] ?? {}),
+          [field]: value,
+        },
+      },
+    }))
+  }
+
+  // ── Histórico de Parcelamento ──────────────────────────────────────────────
+
+  function startNewParcelEntry() {
+    const history = form.parcelamentoHistory ?? []
+    const sorted  = [...history].sort((a, b) => a.yearMonth.localeCompare(b.yearMonth))
+    const lastOrgans = sorted.length > 0 ? { ...sorted[sorted.length - 1].organs } : { ...EMPTY_PARCELAMENTO }
+    setEditingParcelEntry({ yearMonth: nowYM(), organs: lastOrgans })
+  }
+
+  function startEditParcelEntry(entry) {
+    setEditingParcelEntry({ ...entry, organs: { ...entry.organs } })
+  }
+
+  function saveParcelEntry() {
+    if (!editingParcelEntry?.yearMonth) return
+    setForm(prev => {
+      const history = (prev.parcelamentoHistory ?? []).filter(h => h.yearMonth !== editingParcelEntry.yearMonth)
+      return {
+        ...prev,
+        parcelamentoHistory: [
+          ...history,
+          { yearMonth: editingParcelEntry.yearMonth, organs: editingParcelEntry.organs },
+        ].sort((a, b) => a.yearMonth.localeCompare(b.yearMonth)),
+      }
+    })
+    setEditingParcelEntry(null)
+  }
+
+  function removeParcelEntry(ym) {
+    setForm(prev => ({
+      ...prev,
+      parcelamentoHistory: (prev.parcelamentoHistory ?? []).filter(h => h.yearMonth !== ym),
+    }))
+  }
+
+  function setParcelEntryOrgan(organKey, field, value) {
+    setEditingParcelEntry(prev => ({
+      ...prev,
+      organs: {
+        ...prev.organs,
+        [organKey]: { ...(prev.organs?.[organKey] ?? {}), [field]: value },
+      },
+    }))
+  }
+
   // ── Regras automáticas de serviços DP ─────────────────────────────────────
 
   function applyDpRules(current, key, value) {
     let s = { ...current, [key]: value }
     if (key === 'semMovimentacao' && value) {
-      return { ...EMPTY_DP, semMovimentacao: true, autonomoSal: current.autonomoSal ?? false }
+      return { ...EMPTY_DP, semMovimentacao: true, autonomoSal: current.autonomoSal ?? false, envioFolha: true }
     }
     if (key !== 'semMovimentacao' && key !== 'autonomoSal' && value) {
       s.semMovimentacao = false
@@ -139,15 +234,20 @@ export default function CompanyModal({ client, onSave, onClose }) {
         s.fgts = true
         s.det = true
       } else {
-        s.envioFolha = false
         s.fgts = false
         s.det = false
         if (!s.proLabore) s.inss = false
+        if (!s.proLabore) s.envioFolha = false
       }
     }
     if (key === 'proLabore') {
-      if (value) { s.inss = true }
-      else if (!s.folha) { s.inss = false }
+      if (value) {
+        s.inss = true
+        s.envioFolha = true
+      } else {
+        if (!s.folha) s.inss = false
+        if (!s.folha) s.envioFolha = false
+      }
     }
     return s
   }
@@ -203,8 +303,9 @@ export default function CompanyModal({ client, onSave, onClose }) {
   }
 
   const tabs = [
-    { id: 'geral', label: 'Geral',          icon: Building2 },
-    { id: 'dp',    label: 'Depto. Pessoal', icon: Users },
+    { id: 'geral',        label: 'Geral',          icon: Building2 },
+    { id: 'dp',           label: 'Depto. Pessoal', icon: Users },
+    { id: 'parcelamento', label: 'Parcelamento',   icon: Receipt },
   ]
 
   return (
@@ -243,6 +344,11 @@ export default function CompanyModal({ client, onSave, onClose }) {
                 {tab.id === 'dp' && (form.dpServicesHistory ?? []).length > 0 && (
                   <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-500/20 text-brand-500 text-[9px] font-bold">
                     {form.dpServicesHistory.length}
+                  </span>
+                )}
+                {tab.id === 'parcelamento' && (form.parcelamentoHistory ?? []).length > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-500/20 text-brand-500 text-[9px] font-bold">
+                    {form.parcelamentoHistory.length}
                   </span>
                 )}
                 {active && (
@@ -470,6 +576,179 @@ export default function CompanyModal({ client, onSave, onClose }) {
                                 <button
                                   type="button"
                                   onClick={() => removeEntry(entry.yearMonth)}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                  title="Remover"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
+          {/* Aba Parcelamento */}
+          {activeTab === 'parcelamento' && (
+            <div className="px-6 py-5 flex flex-col gap-4">
+
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Histórico de Parcelamentos</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Cada entrada vale a partir daquele mês até a próxima. O checklist usa a configuração mais recente anterior ao mês visualizado.
+                  </p>
+                </div>
+                {!editingParcelEntry && (
+                  <button
+                    type="button"
+                    onClick={startNewParcelEntry}
+                    className="flex items-center gap-1 text-xs text-brand-500 hover:text-brand-400 font-semibold transition-colors flex-shrink-0 ml-3"
+                  >
+                    <Plus size={12} /> Novo registro
+                  </button>
+                )}
+              </div>
+
+              {/* Formulário de nova entrada / edição */}
+              {editingParcelEntry && (
+                <div className="p-4 bg-brand-50 border border-brand-200 rounded-xl flex flex-col gap-3">
+                  <div>
+                    <Label text="A partir de qual mês?" />
+                    <input
+                      type="month"
+                      value={editingParcelEntry.yearMonth}
+                      onChange={e => setEditingParcelEntry(prev => ({ ...prev, yearMonth: e.target.value }))}
+                      className="w-48 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-brand-500/60 transition-colors"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {PARCELAMENTO_ORGANS.map(organ => {
+                      const config = editingParcelEntry.organs?.[organ.key] ?? { active: false, total: '', startMonth: '' }
+                      return (
+                        <div
+                          key={organ.key}
+                          className="p-3 bg-white border rounded-lg transition-colors"
+                          style={{ borderColor: config.active ? 'rgba(243,146,0,0.35)' : '#e5e7eb' }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold text-gray-700">{organ.label}</p>
+                            <Toggle
+                              label={config.active ? 'Ativo' : 'Inativo'}
+                              checked={config.active}
+                              onChange={v => setParcelEntryOrgan(organ.key, 'active', v)}
+                            />
+                          </div>
+                          {config.active && (
+                            <div className="grid grid-cols-2 gap-3 mt-2.5">
+                              <div>
+                                <Label text="Total de parcelas" />
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={config.total}
+                                  onChange={e => setParcelEntryOrgan(organ.key, 'total', e.target.value)}
+                                  placeholder="Ex: 60"
+                                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-brand-500/60 transition-colors"
+                                />
+                              </div>
+                              <div>
+                                <Label text="Mês de início" />
+                                <input
+                                  type="month"
+                                  value={config.startMonth}
+                                  onChange={e => setParcelEntryOrgan(organ.key, 'startMonth', e.target.value)}
+                                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-brand-500/60 transition-colors"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={saveParcelEntry}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-brand-500 hover:bg-brand-400 text-gray-900 transition-all"
+                    >
+                      <Check size={14} /> Salvar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingParcelEntry(null)}
+                      className="px-4 py-2 rounded-lg text-sm border border-gray-200 text-gray-500 hover:text-gray-700 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Timeline cronológica */}
+              {(() => {
+                const sorted = [...(form.parcelamentoHistory ?? [])].sort((a, b) => a.yearMonth.localeCompare(b.yearMonth))
+                if (sorted.length === 0 && !editingParcelEntry) {
+                  return (
+                    <div className="flex flex-col items-center py-8 gap-2 text-gray-400">
+                      <p className="text-sm">Nenhum registro ainda.</p>
+                      <p className="text-xs">Clique em "Novo registro" para configurar os parcelamentos desta empresa.</p>
+                    </div>
+                  )
+                }
+                return (
+                  <div className="flex flex-col gap-0">
+                    {sorted.map((entry, idx) => {
+                      const labels  = activeOrganLabels(entry.organs)
+                      const isLast  = idx === sorted.length - 1
+                      const nextYM  = isLast ? null : sorted[idx + 1].yearMonth
+                      return (
+                        <div key={entry.yearMonth} className="flex gap-3">
+                          <div className="flex flex-col items-center flex-shrink-0 w-5">
+                            <div className="w-2.5 h-2.5 rounded-full border-2 mt-3 flex-shrink-0"
+                              style={{ borderColor: isLast ? '#f39200' : '#d1d5db', background: isLast ? '#f39200' : '#fff' }} />
+                            {!isLast && <div className="w-px flex-1 bg-gray-200 my-1" />}
+                          </div>
+                          <div className="flex-1 mb-2 p-3 rounded-lg border border-gray-200 bg-gray-50">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-semibold text-gray-800">{formatYM(entry.yearMonth)}</p>
+                                  {isLast
+                                    ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-brand-500/15 text-brand-600">atual</span>
+                                    : <span className="text-[10px] text-gray-400">até {formatYM(nextYM)}</span>
+                                  }
+                                </div>
+                                {labels.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {labels.map(l => (
+                                      <span key={l} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-600 border border-brand-200">
+                                        {l}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-[11px] text-gray-400 mt-1 italic">Nenhum órgão ativo</p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => startEditParcelEntry(entry)}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-brand-50 transition-colors"
+                                  title="Editar"
+                                >
+                                  <Pencil size={12} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeParcelEntry(entry.yearMonth)}
                                   className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                                   title="Remover"
                                 >

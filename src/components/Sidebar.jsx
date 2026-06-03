@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BarChart3, Building2, CheckSquare, Calendar, UserCog, Settings, TrendingUp, LogOut, ClipboardList, KeyRound, UserPlus, ChevronLeft, ChevronRight, Users, FileText, Scale } from 'lucide-react'
+import { BarChart3, Building2, CheckSquare, Calendar, UserCog, Settings, TrendingUp, LogOut, ClipboardList, KeyRound, UserPlus, ChevronLeft, ChevronRight, Users, FileText, Scale, Receipt } from 'lucide-react'
 import logoSidebar from '../assets/logo-sidebar.png'
 import { useTasks } from '../context/TasksContext'
 import { useAuth } from '../context/AuthContext'
@@ -16,6 +16,7 @@ const kanbans = [
   { id: 'onboarding',          icon: UserPlus,   label: 'Onboarding',          description: 'Integração de clientes' },
   { id: 'depto-pessoal',       icon: Users,      label: 'Depto. Pessoal',      description: 'Checklist mensal de DP' },
   { id: 'controle-societario', icon: Scale,      label: 'Controle Societário', description: 'Ordens de serviço societárias' },
+  { id: 'parcelamento',        icon: Receipt,    label: 'Parcelamento',        description: 'Checklist de parcelamentos' },
 ]
 
 const tools = [

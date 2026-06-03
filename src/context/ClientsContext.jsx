@@ -99,6 +99,8 @@ export function ClientsProvider({ children }) {
       entryDate: 'entry_date',
       dpServices:        'dp_services',
       dpServicesHistory: 'dp_services_history',
+      parcelamento:        'parcelamento',
+      parcelamentoHistory: 'parcelamento_history',
     }
     for (const [camel, snake] of Object.entries(map)) {
       if (camel in updates) {

@@ -43,6 +43,8 @@ export function fromDb(row) {
     createdAt:      row.created_at ?? null,
     dpServices:        row.dp_services ?? {},
     dpServicesHistory: row.dp_services_history ?? [],
+    parcelamento:        row.parcelamento         ?? {},
+    parcelamentoHistory: row.parcelamento_history  ?? [],
   }
 }
 
@@ -75,5 +77,7 @@ export function toDb(client) {
     entry_date:      client.entryDate || null,
     dp_services:         client.dpServices ?? {},
     dp_services_history: client.dpServicesHistory ?? [],
+    parcelamento:         client.parcelamento        ?? {},
+    parcelamento_history: client.parcelamentoHistory  ?? [],
   }
 }

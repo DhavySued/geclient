@@ -8,6 +8,7 @@ export const MODULES = [
   { id: 'onboarding',          label: 'Onboarding',          actions: ['view', 'edit'] },
   { id: 'depto-pessoal',       label: 'Depto. Pessoal',      actions: ['view', 'edit'] },
   { id: 'controle-societario', label: 'Controle Societário', actions: ['view', 'edit'] },
+  { id: 'parcelamento',        label: 'Parcelamento',        actions: ['view', 'edit'] },
   { id: 'relatorios',          label: 'Relatórios',          actions: ['view'] },
   { id: 'tasks',               label: 'Tarefas',             actions: ['view', 'create', 'edit', 'delete'] },
   { id: 'calendar',            label: 'Calendário',          actions: ['view', 'edit', 'delete'] },
