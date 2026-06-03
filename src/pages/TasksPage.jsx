@@ -19,7 +19,7 @@ export default function TasksPage({ onOpenClient }) {
   const canEdit   = can('tasks', 'edit')
   const canDelete = can('tasks', 'delete')
 
-  const [filterStatus,   setFilterStatus]   = useState('todas')
+  const [filterStatus,   setFilterStatus]   = useState('pendente')
   const [filterPriority, setFilterPriority] = useState('todas')
   const [search,         setSearch]         = useState('')
   const [showForm,       setShowForm]       = useState(false)
