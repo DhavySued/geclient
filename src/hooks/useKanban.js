@@ -32,7 +32,16 @@ export function useFiscalKanban(levelFilter, selectedMonth, allStatusIds, extraF
 
   const columns = useMemo(() => {
     function getStatus(client) {
-      return getRecord(client.id, selectedMonth)?.status ?? 'sem_consulta'
+      const current = getRecord(client.id, selectedMonth)
+      if (current) return current.status
+
+      // Sem registro para o mês atual — herda o status do mês anterior mais recente
+      const clientRecords = records[client.id] ?? {}
+      const prevMonths = Object.keys(clientRecords)
+        .filter(m => m < selectedMonth)
+        .sort()
+      if (prevMonths.length === 0) return 'sem_consulta'
+      return clientRecords[prevMonths[prevMonths.length - 1]].status ?? 'sem_consulta'
     }
     return Object.fromEntries(
       statusIds.map(id => [
