@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckSquare, Flag, Search, Plus, X, List, LayoutGrid, Repeat, Clock, CheckCircle2 } from 'lucide-react'
+import { CheckSquare, Flag, Search, Plus, X, List, LayoutGrid, Repeat, Clock, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
 import ClientSelect from '../components/ClientSelect'
 import DatePicker from '../components/DatePicker'
 import { useTasks } from '../context/TasksContext'
@@ -19,8 +19,8 @@ export default function TasksPage({ onOpenClient }) {
   const canEdit   = can('tasks', 'edit')
   const canDelete = can('tasks', 'delete')
 
-  const [filterStatus,   setFilterStatus]   = useState('pendente')
-  const [filterPriority, setFilterPriority] = useState('todas')
+  const [filterPriority,  setFilterPriority]  = useState('todas')
+  const [showCompleted,   setShowCompleted]   = useState(false)
   const [search,         setSearch]         = useState('')
   const [showForm,       setShowForm]       = useState(false)
   const [viewMode,       setViewMode]       = useState('list')
@@ -78,11 +78,9 @@ export default function TasksPage({ onOpenClient }) {
   const regularTasks  = tasks.filter(t => !t.repeatMonthly)
   const templateTasks = tasks.filter(t => t.repeatMonthly)
 
-  // Filter regular tasks
+  // Filter regular tasks (sem filtro de status — split abaixo)
   let filtered = [...regularTasks]
-  if (filterStatus === 'pendente')  filtered = filtered.filter(t => t.status !== 'concluida')
-  if (filterStatus === 'concluida') filtered = filtered.filter(t => t.status === 'concluida')
-  if (filterPriority !== 'todas')   filtered = filtered.filter(t => t.priority === filterPriority)
+  if (filterPriority !== 'todas') filtered = filtered.filter(t => t.priority === filterPriority)
   if (search.trim()) {
     const q = search.toLowerCase()
     filtered = filtered.filter(t =>
@@ -91,6 +89,9 @@ export default function TasksPage({ onOpenClient }) {
       (clientMap[t.clientId]?.name || '').toLowerCase().includes(q)
     )
   }
+
+  const filteredPending   = filtered.filter(t => t.status !== 'concluida')
+  const filteredCompleted = filtered.filter(t => t.status === 'concluida')
 
   // Filter templates by search
   const filteredTemplates = search.trim()
@@ -281,21 +282,6 @@ export default function TasksPage({ onOpenClient }) {
             className="w-full bg-gray-100 border border-gray-200 rounded-lg pl-8 pr-3 py-2 text-sm text-gray-600 placeholder-gray-400 focus:outline-none focus:border-brand-500/50"
           />
         </div>
-        {/* Status filter only useful in list mode or kanban-by-priority */}
-        {(viewMode === 'list' || groupBy === 'priority') && (
-          <div className="flex gap-1 bg-gray-100 rounded-lg p-1 border border-gray-200">
-            {['todas','pendente','concluida'].map(f => (
-              <button key={f} onClick={() => setFilterStatus(f)}
-                className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                  filterStatus === f
-                    ? 'bg-white text-gray-900 font-semibold shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}>
-                {f === 'todas' ? 'Todas' : f === 'pendente' ? 'Pendente' : 'Concluída'}
-              </button>
-            ))}
-          </div>
-        )}
         {(viewMode === 'list' || groupBy === 'status') && (
           <div className="flex gap-1 bg-gray-100 rounded-lg p-1 border border-gray-200">
             {['todas','alta','media','baixa','nenhuma'].map(f => (
@@ -315,14 +301,14 @@ export default function TasksPage({ onOpenClient }) {
       {/* List view */}
       {viewMode === 'list' && (
         <div className="flex-1 overflow-y-auto scrollbar-thin space-y-2.5 pb-4">
-          {filtered.length === 0 && filteredTemplates.length === 0 ? (
+          {filteredPending.length === 0 && filteredCompleted.length === 0 && filteredTemplates.length === 0 ? (
             <div className="text-center py-16 text-gray-600">
               <CheckSquare size={32} className="mx-auto mb-3 opacity-20" />
               <p className="text-sm">Nenhuma tarefa encontrada.</p>
             </div>
           ) : (
             <>
-              {filtered.map(task => (
+              {filteredPending.map(task => (
                 <TaskItem
                   key={task.id}
                   task={task}
@@ -337,8 +323,40 @@ export default function TasksPage({ onOpenClient }) {
                 />
               ))}
 
+              {/* Seção colapsável de concluídas */}
+              {filteredCompleted.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-gray-100">
+                  <button
+                    onClick={() => setShowCompleted(v => !v)}
+                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all"
+                  >
+                    {showCompleted ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    <CheckCircle2 size={13} className="text-green-500" />
+                    Concluídas ({filteredCompleted.length})
+                  </button>
+                  {showCompleted && (
+                    <div className="mt-2 space-y-2.5">
+                      {filteredCompleted.map(task => (
+                        <TaskItem
+                          key={task.id}
+                          task={task}
+                          users={users}
+                          clients={clients}
+                          onToggle={handleToggle}
+                          onUpdate={updateTask}
+                          onDelete={deleteTask}
+                          onOpenClient={onOpenClient}
+                          canEdit={canEdit}
+                          canDelete={canDelete}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {filteredTemplates.length > 0 && (
-                <div className={filtered.length > 0 ? 'mt-4 pt-4 border-t border-gray-100' : ''}>
+                <div className={filteredPending.length > 0 || filteredCompleted.length > 0 ? 'mt-4 pt-4 border-t border-gray-100' : ''}>
                   <div className="flex items-center gap-2 mb-2">
                     <Repeat size={12} className="text-purple-400" />
                     <span className="text-xs font-medium text-gray-600">Tarefas Recorrentes</span>
@@ -368,7 +386,7 @@ export default function TasksPage({ onOpenClient }) {
       {viewMode === 'kanban' && (
         <div className="flex-1 overflow-hidden">
           <TaskKanbanView
-            tasks={filtered}
+            tasks={[...filteredPending, ...filteredCompleted]}
             users={users}
             clients={clients}
             groupBy={groupBy}
