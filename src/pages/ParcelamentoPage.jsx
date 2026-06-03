@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, Search, AlertTriangle, X, Settings2, Receipt, Copy, Check } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { ChevronLeft, ChevronRight, Search, AlertTriangle, X, Settings2, Receipt, Copy, Check, ListFilter } from 'lucide-react'
 import { useClients } from '../context/ClientsContext'
 import { useParcelamento } from '../context/ParcelamentoContext'
 import ParcelamentoBatchModal from '../components/ParcelamentoBatchModal'
@@ -78,12 +78,32 @@ export default function ParcelamentoPage() {
   const { clients } = useClients()
   const { getRecord, upsertRecord } = useParcelamento()
 
-  const [yearMonth, setYearMonth]   = useState(() => toYearMonth(new Date()))
-  const [search, setSearch]         = useState('')
+  const [yearMonth, setYearMonth]         = useState(() => toYearMonth(new Date()))
+  const [search, setSearch]               = useState('')
+  const [colFilters, setColFilters]       = useState({})
+  const [openCol, setOpenCol]             = useState(null)
+  const [hoveredRow, setHoveredRow]       = useState(null)
   const [statusFilters, setStatusFilters] = useState(new Set())
-  const [saveError, setSaveError]   = useState('')
-  const [showBatch, setShowBatch]   = useState(false)
-  const [copiedId, setCopiedId]     = useState(null)
+  const [saveError, setSaveError]         = useState('')
+  const [showBatch, setShowBatch]         = useState(false)
+  const [copiedId, setCopiedId]           = useState(null)
+
+  function updateColFilter(key, option, checked) {
+    setColFilters(prev => ({
+      ...prev,
+      [key]: { ...(prev[key] ?? { feito: false, pendente: false }), [option]: checked },
+    }))
+  }
+
+  function clearColFilter(key) {
+    setColFilters(prev => {
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
+
+  const activeColFilters = Object.entries(colFilters).filter(([, v]) => v.feito !== v.pendente)
 
   function toggleStatusFilter(key) {
     setStatusFilters(prev => {
@@ -97,6 +117,17 @@ export default function ParcelamentoPage() {
     let list = clients.filter(c => hasAnyActiveOrgan(c, yearMonth))
     const q = search.trim().toLowerCase()
     if (q) list = list.filter(c => c.name.toLowerCase().includes(q) || (c.cnpj ?? '').includes(q))
+
+    for (const [key, { feito, pendente }] of Object.entries(colFilters)) {
+      if (feito === pendente) continue
+      list = list.filter(c => {
+        if (!isOrganActive(c, key, yearMonth)) return false
+        const rec  = getRecord(c.id, yearMonth) ?? {}
+        const done = rec[key] === true
+        return feito ? done : !done
+      })
+    }
+
     if (statusFilters.size > 0) {
       list = list.filter(c => {
         const rec = getRecord(c.id, yearMonth) ?? {}
@@ -104,7 +135,7 @@ export default function ParcelamentoPage() {
       })
     }
     return list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-  }, [clients, search, statusFilters, yearMonth, getRecord])
+  }, [clients, search, colFilters, statusFilters, yearMonth, getRecord])
 
   const totalConfigured = useMemo(() =>
     filtered.reduce((acc, c) => acc + ORGANS.filter(o => isOrganActive(c, o.key, yearMonth)).length, 0),
@@ -268,6 +299,24 @@ export default function ParcelamentoPage() {
           })}
         </div>
 
+        {/* Filtros de coluna ativos */}
+        {activeColFilters.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1 text-xs font-medium text-brand-500">
+              <ListFilter size={12} />
+              {activeColFilters.length} coluna{activeColFilters.length > 1 ? 's' : ''} filtrada{activeColFilters.length > 1 ? 's' : ''}
+              <span className="text-gray-400">·</span>
+              <span className="text-gray-500">{filtered.length} empresa{filtered.length !== 1 ? 's' : ''}</span>
+            </span>
+            <button
+              onClick={() => setColFilters({})}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 border border-gray-200 transition-all"
+            >
+              <X size={10} /> Limpar filtros
+            </button>
+          </div>
+        )}
+
         {/* Barra de progresso */}
         {totalConfigured > 0 && (
           <div className="flex items-center gap-2 ml-auto">
@@ -285,6 +334,9 @@ export default function ParcelamentoPage() {
         )}
       </div>
 
+      {/* Overlay para fechar dropdown de filtro */}
+      {openCol && <div className="fixed inset-0 z-10" onClick={() => setOpenCol(null)} />}
+
       {/* Tabela */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-auto" style={{ maxHeight: 'calc(100vh - 240px)' }}>
         <table className="w-full border-collapse">
@@ -299,23 +351,73 @@ export default function ParcelamentoPage() {
               <th className="px-3 py-2.5 text-[11px] font-semibold text-gray-500 border-b border-gray-100 text-center whitespace-nowrap w-px">
                 Status
               </th>
-              {ORGANS.map((o, colIdx) => (
-                <th
-                  key={o.key}
-                  className="px-2 py-2.5 border-b border-gray-100 text-center whitespace-nowrap"
-                  style={{ background: colIdx % 2 === 1 ? '#f3f4f6' : '#f9fafb' }}
-                >
-                  <span className="text-[11px] font-semibold text-gray-500">{o.label}</span>
-                </th>
-              ))}
+              {ORGANS.map((o, colIdx) => {
+                const cf        = colFilters[o.key] ?? { feito: false, pendente: false }
+                const hasFilter = cf.feito !== cf.pendente
+                const isOpen    = openCol === o.key
+                const colZebra  = colIdx % 2 === 1
+                return (
+                  <th
+                    key={o.key}
+                    className="px-2 py-2.5 border-b border-gray-100 text-center whitespace-nowrap"
+                    style={{ background: hasFilter ? 'rgba(243,146,0,0.10)' : colZebra ? '#f3f4f6' : '#f9fafb' }}
+                  >
+                    <div className="relative inline-block">
+                      <button
+                        onClick={() => setOpenCol(isOpen ? null : o.key)}
+                        className="inline-flex items-center gap-1 group"
+                      >
+                        <span className={`text-[11px] font-semibold transition-colors ${hasFilter ? 'text-brand-500' : 'text-gray-500 group-hover:text-gray-700'}`}>
+                          {o.label}
+                        </span>
+                        <ListFilter
+                          size={9}
+                          className={`flex-shrink-0 transition-colors ${hasFilter ? 'text-brand-500' : 'text-gray-300 group-hover:text-gray-400'}`}
+                        />
+                      </button>
+                      {isOpen && (
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1.5 min-w-[120px]">
+                          {[
+                            { key: 'feito',    label: 'Feito',    color: '#16a34a' },
+                            { key: 'pendente', label: 'Pendente', color: '#dc2626' },
+                          ].map(opt => (
+                            <label
+                              key={opt.key}
+                              className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-gray-50 select-none"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={cf[opt.key]}
+                                onChange={e => updateColFilter(o.key, opt.key, e.target.checked)}
+                                className="accent-brand-500 w-3.5 h-3.5 cursor-pointer"
+                              />
+                              <span className="text-xs font-medium" style={{ color: opt.color }}>{opt.label}</span>
+                            </label>
+                          ))}
+                          {(cf.feito || cf.pendente) && (
+                            <div className="border-t border-gray-100 mt-1 pt-1 px-3">
+                              <button
+                                onClick={() => { clearColFilter(o.key); setOpenCol(null) }}
+                                className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                Limpar
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={ORGANS.length + 3} className="text-center py-12 text-gray-400 text-sm">
-                  {search || statusFilters.size > 0
-                    ? 'Nenhuma empresa encontrada com esses filtros.'
+                  {activeColFilters.length > 0 || search || statusFilters.size > 0
+                    ? 'Nenhuma empresa corresponde aos filtros selecionados.'
                     : 'Nenhuma empresa com parcelamento configurado.'}
                 </td>
               </tr>
@@ -325,13 +427,21 @@ export default function ParcelamentoPage() {
               const done         = activeOrgans.filter(o => rec[o.key]).length
               const allDone      = activeOrgans.length > 0 && done === activeOrgans.length
               const rowZebra     = idx % 2 === 1
+              const isHovered    = hoveredRow === client.id
               const status       = rec.status ?? 'pendente'
               const st           = STATUS_STYLES[status] ?? STATUS_STYLES.pendente
 
               return (
                 <tr
                   key={client.id}
-                  style={{ background: allDone ? '#dcfce7' : rowZebra ? '#f9fafb' : '#fff' }}
+                  onMouseEnter={() => setHoveredRow(client.id)}
+                  onMouseLeave={() => setHoveredRow(null)}
+                  style={{
+                    background: isHovered
+                      ? allDone ? '#bbf7d0' : '#eff6ff'
+                      : allDone ? '#dcfce7' : rowZebra ? '#f9fafb' : '#fff',
+                    transition: 'background 0.1s',
+                  }}
                 >
                   {/* Empresa */}
                   <td className="px-3 py-2" style={{ background: 'inherit' }}>
@@ -342,7 +452,7 @@ export default function ParcelamentoPage() {
                       >
                         {initials(client.name)}
                       </div>
-                      <p className="text-xs font-medium text-gray-800 truncate max-w-[130px]" title={client.name}>
+                      <p className={`text-xs truncate max-w-[130px] transition-all ${isHovered ? 'font-semibold text-gray-900' : 'font-medium text-gray-800'}`} title={client.name}>
                         {client.name}
                       </p>
                     </div>
@@ -351,7 +461,7 @@ export default function ParcelamentoPage() {
                   {/* CNPJ com botão de copiar */}
                   <td className="pl-3 pr-2 py-2 whitespace-nowrap w-px" style={{ background: 'inherit' }}>
                     <div className="flex items-center gap-1.5 group/cnpj">
-                      <span className="text-[11px] font-mono text-gray-400">{client.cnpj ?? '—'}</span>
+                      <span className={`text-[11px] font-mono transition-colors ${isHovered ? 'text-gray-600' : 'text-gray-400'}`}>{client.cnpj ?? '—'}</span>
                       {client.cnpj && (
                         <button
                           onClick={() => copyCnpj(client)}

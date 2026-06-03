@@ -56,10 +56,13 @@ export default function DeptoPessoalPage() {
   const { getRecord, upsertRecord } = useDpRecords()
   const [yearMonth, setYearMonth] = useState(() => toYearMonth(new Date()))
   const [search, setSearch]       = useState('')
-  const [activeFilters, setActiveFilters] = useState(new Set())
+  const [colFilters, setColFilters]     = useState({})
+  // colFilters: { [key]: { feito: bool, pendente: bool } }
+  const [openCol, setOpenCol]           = useState(null)
   const [statusFilters, setStatusFilters] = useState(new Set())
-  const [saveError, setSaveError]     = useState('')
-  const [showBatch, setShowBatch]     = useState(false)
+  const [hoveredRow, setHoveredRow]     = useState(null)
+  const [saveError, setSaveError]       = useState('')
+  const [showBatch, setShowBatch]       = useState(false)
 
   useEffect(() => {
     if (!saveError) return
@@ -67,13 +70,22 @@ export default function DeptoPessoalPage() {
     return () => clearTimeout(t)
   }, [saveError])
 
-  function toggleFilter(key) {
-    setActiveFilters(prev => {
-      const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
+  function updateColFilter(key, option, checked) {
+    setColFilters(prev => ({
+      ...prev,
+      [key]: { ...(prev[key] ?? { feito: false, pendente: false }), [option]: checked },
+    }))
+  }
+
+  function clearColFilter(key) {
+    setColFilters(prev => {
+      const next = { ...prev }
+      delete next[key]
       return next
     })
   }
+
+  const activeColFilters = Object.entries(colFilters).filter(([, v]) => v.feito !== v.pendente)
 
   function toggleStatusFilter(key) {
     setStatusFilters(prev => {
@@ -86,19 +98,29 @@ export default function DeptoPessoalPage() {
   // Lógica AND — empresa precisa ter TODOS os serviços filtrados
   const filtered = useMemo(() => {
     let list = [...clients]
+
+    // MEI só aparece se tiver Folha ou Pró-Labore configurado
+    list = list.filter(c => {
+      if (c.regime !== 'MEI') return true
+      const svc = getServicesForMonth(c, yearMonth)
+      return svc.folha === true || svc.proLabore === true
+    })
+
     const q = search.trim().toLowerCase()
     if (q) {
       list = list.filter(c =>
         c.name.toLowerCase().includes(q) || (c.cnpj ?? '').includes(q)
       )
     }
-    if (activeFilters.size > 0) {
+    for (const [key, { feito, pendente }] of Object.entries(colFilters)) {
+      if (feito === pendente) continue // ambos ou nenhum = sem filtro efetivo
       list = list.filter(c => {
-        const svc = getServicesForMonth(c, yearMonth)
-        return [...activeFilters].every(key => {
-          const service = DP_SERVICES.find(s => s.key === key)
-          return service ? isConfigured(svc, service) : !!svc[key]
-        })
+        const svc     = getServicesForMonth(c, yearMonth)
+        const service = DP_SERVICES.find(s => s.key === key)
+        if (!service || !isConfigured(svc, service)) return false
+        const rec  = getRecord(c.id, yearMonth) ?? {}
+        const done = rec[key] === true
+        return feito ? done : !done
       })
     }
     if (statusFilters.size > 0) {
@@ -108,7 +130,7 @@ export default function DeptoPessoalPage() {
       })
     }
     return list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-  }, [clients, search, activeFilters, statusFilters, yearMonth, getRecord])
+  }, [clients, search, colFilters, statusFilters, yearMonth, getRecord])
 
   const totalConfigured = useMemo(() => {
     return filtered.reduce((acc, c) => {
@@ -269,17 +291,17 @@ export default function DeptoPessoalPage() {
           })}
         </div>
 
-        {/* Filtros de serviço ativos — indicador + limpar */}
-        {activeFilters.size > 0 && (
+        {/* Filtros de coluna ativos — indicador + limpar */}
+        {activeColFilters.length > 0 && (
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1 text-xs font-medium text-brand-500">
               <ListFilter size={12} />
-              {activeFilters.size} filtro{activeFilters.size > 1 ? 's' : ''} ativo{activeFilters.size > 1 ? 's' : ''}
+              {activeColFilters.length} coluna{activeColFilters.length > 1 ? 's' : ''} filtrada{activeColFilters.length > 1 ? 's' : ''}
               <span className="text-gray-400">·</span>
-              {filtered.length} empresa{filtered.length !== 1 ? 's' : ''}
+              <span className="text-gray-500">{filtered.length} empresa{filtered.length !== 1 ? 's' : ''}</span>
             </span>
             <button
-              onClick={() => setActiveFilters(new Set())}
+              onClick={() => setColFilters({})}
               className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 border border-gray-200 transition-all"
             >
               <X size={10} /> Limpar filtros
@@ -304,6 +326,9 @@ export default function DeptoPessoalPage() {
         )}
       </div>
 
+      {/* Overlay para fechar dropdown de filtro */}
+      {openCol && <div className="fixed inset-0 z-10" onClick={() => setOpenCol(null)} />}
+
       {/* Tabela */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
           <table className="w-full border-collapse">
@@ -311,12 +336,7 @@ export default function DeptoPessoalPage() {
               <tr style={{ background: '#f9fafb', boxShadow: '0 1px 0 #e5e7eb' }}>
                 {/* Coluna empresa */}
                 <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-gray-500 border-b border-gray-100 min-w-[150px]">
-                  <div className="flex items-center gap-1">
-                    Empresa
-                    {activeFilters.size === 0 && (
-                      <span className="text-[10px] text-gray-300 font-normal">— clique ▼ para filtrar</span>
-                    )}
-                  </div>
+                  Empresa
                 </th>
                 <th className="pl-3 pr-2 py-2.5 text-[11px] font-semibold text-gray-500 border-b border-gray-100 text-left whitespace-nowrap w-px">
                   CNPJ
@@ -326,30 +346,64 @@ export default function DeptoPessoalPage() {
                 </th>
 
                 {DP_SERVICES.map((s, colIdx) => {
-                  const isActive  = activeFilters.has(s.key)
-                  const colZebra  = colIdx % 2 === 1
+                  const cf       = colFilters[s.key] ?? { feito: false, pendente: false }
+                  const hasFilter = cf.feito !== cf.pendente
+                  const isOpen   = openCol === s.key
+                  const colZebra = colIdx % 2 === 1
                   return (
                     <th
                       key={s.key}
                       className="px-2 py-2.5 border-b border-gray-100 text-center whitespace-nowrap"
                       style={{
-                        background: isActive ? 'rgba(243,146,0,0.10)' : colZebra ? '#f3f4f6' : '#f9fafb',
+                        background: hasFilter ? 'rgba(243,146,0,0.10)' : colZebra ? '#f3f4f6' : '#f9fafb',
                       }}
                     >
                       {s.filterable ? (
-                        <button
-                          onClick={() => toggleFilter(s.key)}
-                          title={isActive ? 'Remover filtro' : 'Filtrar por este serviço'}
-                          className="inline-flex flex-col items-center gap-0.5 group w-full"
-                        >
-                          <span className={`text-[11px] font-semibold transition-colors ${isActive ? 'text-brand-500' : 'text-gray-500 group-hover:text-gray-700'}`}>
-                            {s.label}
-                          </span>
-                          <ListFilter
-                            size={9}
-                            className={`transition-colors ${isActive ? 'text-brand-500' : 'text-gray-300 group-hover:text-gray-400'}`}
-                          />
-                        </button>
+                        <div className="relative inline-block">
+                          <button
+                            onClick={() => setOpenCol(isOpen ? null : s.key)}
+                            className="inline-flex items-center gap-1 group"
+                          >
+                            <span className={`text-[11px] font-semibold transition-colors ${hasFilter ? 'text-brand-500' : 'text-gray-500 group-hover:text-gray-700'}`}>
+                              {s.label}
+                            </span>
+                            <ListFilter
+                              size={9}
+                              className={`transition-colors flex-shrink-0 ${hasFilter ? 'text-brand-500' : 'text-gray-300 group-hover:text-gray-400'}`}
+                            />
+                          </button>
+                          {isOpen && (
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1.5 min-w-[120px]">
+                              {[
+                                { key: 'feito',    label: 'Feito',    color: '#16a34a' },
+                                { key: 'pendente', label: 'Pendente', color: '#dc2626' },
+                              ].map(opt => (
+                                <label
+                                  key={opt.key}
+                                  className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-gray-50 select-none"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={cf[opt.key]}
+                                    onChange={e => updateColFilter(s.key, opt.key, e.target.checked)}
+                                    className="accent-brand-500 w-3.5 h-3.5 cursor-pointer"
+                                  />
+                                  <span className="text-xs font-medium" style={{ color: opt.color }}>{opt.label}</span>
+                                </label>
+                              ))}
+                              {(cf.feito || cf.pendente) && (
+                                <div className="border-t border-gray-100 mt-1 pt-1 px-3">
+                                  <button
+                                    onClick={() => { clearColFilter(s.key); setOpenCol(null) }}
+                                    className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+                                  >
+                                    Limpar
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-[11px] font-semibold text-gray-500">{s.label}</span>
                       )}
@@ -362,8 +416,8 @@ export default function DeptoPessoalPage() {
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={DP_SERVICES.length + 1} className="text-center py-12 text-gray-400 text-sm">
-                    {activeFilters.size > 0
-                      ? 'Nenhuma empresa com esses serviços combinados.'
+                    {activeColFilters.length > 0
+                      ? 'Nenhuma empresa corresponde aos filtros selecionados.'
                       : 'Nenhuma empresa encontrada.'
                     }
                   </td>
@@ -376,11 +430,19 @@ export default function DeptoPessoalPage() {
                   const done       = configured.filter(s => rec[s.key]).length
                   const allDone    = configured.length > 0 && done === configured.length
                   const rowZebra   = idx % 2 === 1
+                  const isHovered  = hoveredRow === client.id
 
                   return (
                     <tr
                       key={client.id}
-                      style={{ background: allDone ? '#dcfce7' : rowZebra ? '#f9fafb' : '#fff' }}
+                      onMouseEnter={() => setHoveredRow(client.id)}
+                      onMouseLeave={() => setHoveredRow(null)}
+                      style={{
+                        background: isHovered
+                          ? allDone ? '#bbf7d0' : '#eff6ff'
+                          : allDone ? '#dcfce7' : rowZebra ? '#f9fafb' : '#fff',
+                        transition: 'background 0.1s',
+                      }}
                     >
                       <td className="px-3 py-2" style={{ background: 'inherit' }}>
                         <div className="flex items-center gap-2 min-w-0">
@@ -390,14 +452,14 @@ export default function DeptoPessoalPage() {
                           >
                             {client.name.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase()).join('')}
                           </div>
-                          <p className="text-xs font-medium text-gray-800 truncate max-w-[130px]" title={client.name}>
+                          <p className={`text-xs truncate max-w-[130px] transition-all ${isHovered ? 'font-semibold text-gray-900' : 'font-medium text-gray-800'}`} title={client.name}>
                             {client.name}
                           </p>
                         </div>
                       </td>
 
                       <td className="pl-3 pr-2 py-2 whitespace-nowrap w-px" style={{ background: 'inherit' }}>
-                        <span className="text-[11px] font-mono text-gray-400">{client.cnpj ?? '—'}</span>
+                        <span className={`text-[11px] font-mono transition-colors ${isHovered ? 'text-gray-600' : 'text-gray-400'}`}>{client.cnpj ?? '—'}</span>
                       </td>
 
                       <td className="px-3 py-2 w-px text-center" style={{ background: 'inherit' }}>
@@ -430,7 +492,6 @@ export default function DeptoPessoalPage() {
                       </td>
 
                       {DP_SERVICES.map((s, colIdx) => {
-                        const isActive  = activeFilters.has(s.key)
                         const conf      = isConfigured(svc, s)
                         const isDone    = conf && (rec[s.key] ?? false)
                         const colZebra  = colIdx % 2 === 1
@@ -438,9 +499,7 @@ export default function DeptoPessoalPage() {
                           ? 'rgba(34,197,94,0.22)'
                           : conf
                             ? 'rgba(239,68,68,0.10)'
-                            : isActive
-                              ? 'rgba(243,146,0,0.06)'
-                              : 'inherit'
+                            : 'inherit'
 
                         if (!conf) {
                           return (
