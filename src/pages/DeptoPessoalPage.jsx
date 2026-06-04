@@ -175,8 +175,6 @@ export default function DeptoPessoalPage() {
     const allDone = configured.length > 0 && configured.every(s => updatedRec[s.key])
 
     const updates = { [field]: newValue }
-    if (allDone && (rec.status ?? 'pendente') !== 'fechado') updates.status = 'fechado'
-    else if (!allDone && (rec.status ?? 'pendente') === 'fechado') updates.status = 'pendente'
 
     const result = await upsertRecord(clientId, yearMonth, updates)
     if (result?.error) {
