@@ -24,10 +24,12 @@ import SettingsPage from './pages/SettingsPage'
 import LoginPage from './pages/LoginPage'
 import AuditPage from './pages/AuditPage'
 import DeptoPessoalPage from './pages/DeptoPessoalPage'
+import FeriasPage from './pages/FeriasPage'
 import RelatoriosPage from './pages/RelatoriosPage'
 import ControlesSocietarioPage from './pages/ControlesSocietarioPage'
 import ParcelamentoPage from './pages/ParcelamentoPage'
 import { DpRecordsProvider } from './context/DpRecordsContext'
+import { FeriasRecordsProvider } from './context/FeriasRecordsContext'
 import { SocietarioProvider } from './context/SocietarioContext'
 import { ParcelamentoProvider } from './context/ParcelamentoContext'
 import { Loader2, AlertTriangle, ShieldOff } from 'lucide-react'
@@ -131,6 +133,7 @@ function AppContent() {
           {activePage === 'audit'     && (can('audit',    'view') ? <AuditPage /> : <AccessDenied />)}
           {activePage === 'settings'     && (can('settings',      'view') ? <SettingsPage /> : <AccessDenied />)}
           {activePage === 'depto-pessoal' && (can('depto-pessoal', 'view') ? <DeptoPessoalPage /> : <AccessDenied />)}
+          {activePage === 'dp-ferias'     && (can('depto-pessoal', 'view') ? <FeriasPage />      : <AccessDenied />)}
           {activePage === 'relatorios'          && (can('relatorios',          'view') ? <RelatoriosPage />          : <AccessDenied />)}
           {activePage === 'controle-societario' && (can('controle-societario', 'view') ? <ControlesSocietarioPage /> : <AccessDenied />)}
           {activePage === 'parcelamento'        && (can('parcelamento',        'view') ? <ParcelamentoPage />        : <AccessDenied />)}
@@ -163,15 +166,17 @@ function AuthGate() {
             <FiscalRecordsProvider>
               <ClientsProvider>
                 <DpRecordsProvider>
-                  <SocietarioProvider>
-                    <ParcelamentoProvider>
-                      <UsersProvider>
-                        <TasksProvider>
-                          <AppContent />
-                        </TasksProvider>
-                      </UsersProvider>
-                    </ParcelamentoProvider>
-                  </SocietarioProvider>
+                  <FeriasRecordsProvider>
+                    <SocietarioProvider>
+                      <ParcelamentoProvider>
+                        <UsersProvider>
+                          <TasksProvider>
+                            <AppContent />
+                          </TasksProvider>
+                        </UsersProvider>
+                      </ParcelamentoProvider>
+                    </SocietarioProvider>
+                  </FeriasRecordsProvider>
                 </DpRecordsProvider>
               </ClientsProvider>
             </FiscalRecordsProvider>

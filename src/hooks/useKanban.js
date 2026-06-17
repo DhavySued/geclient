@@ -44,7 +44,7 @@ export function useFiscalKanban(levelFilter, selectedMonth, allStatusIds, extraF
   }, [filtered, selectedMonth, records, statusIds])
 
   async function moveClient(clientId, targetStatus, checksOverride = null) {
-    const existing = getRecord(clientId, selectedMonth)
+    const existing = getRecord(clientId, selectedMonth) ?? getEffectiveRecord(clientId, selectedMonth)
     await upsertRecord(clientId, selectedMonth, {
       status:       targetStatus,
       checks:       checksOverride ?? existing?.checks       ?? {},

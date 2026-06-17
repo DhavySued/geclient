@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { BarChart3, Building2, CheckSquare, Calendar, UserCog, Settings, TrendingUp, LogOut, ClipboardList, KeyRound, UserPlus, ChevronLeft, ChevronRight, Users, FileText, Scale, Receipt } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { BarChart3, Building2, CheckSquare, Calendar, UserCog, Settings, TrendingUp, LogOut, ClipboardList, KeyRound, UserPlus, ChevronLeft, ChevronRight, ChevronDown, Users, FileText, Scale, Receipt, Umbrella } from 'lucide-react'
 import logoSidebar from '../assets/logo-sidebar.png'
 import { useTasks } from '../context/TasksContext'
 import { useAuth } from '../context/AuthContext'
@@ -14,7 +14,13 @@ const kanbans = [
   { id: 'fiscal',              icon: BarChart3,  label: 'Gestão Fiscal',       description: 'Situação tributária' },
   { id: 'cx',                  icon: TrendingUp, label: 'NPS',                 description: 'Health Score' },
   { id: 'onboarding',          icon: UserPlus,   label: 'Onboarding',          description: 'Integração de clientes' },
-  { id: 'depto-pessoal',       icon: Users,      label: 'Depto. Pessoal',      description: 'Checklist mensal de DP' },
+  {
+    id: 'depto-pessoal', icon: Users, label: 'Depto. Pessoal', description: 'Gestão de pessoas',
+    subItems: [
+      { id: 'depto-pessoal', icon: ClipboardList, label: 'Checklist' },
+      { id: 'dp-ferias',     icon: Umbrella,      label: 'Férias'    },
+    ],
+  },
   { id: 'controle-societario', icon: Scale,      label: 'Controle Societário', description: 'Ordens de serviço societárias' },
   { id: 'parcelamento',        icon: Receipt,    label: 'Parcelamento',        description: 'Checklist de parcelamentos' },
 ]
@@ -119,12 +125,140 @@ function NavItem({ item, active, onNavigate, badge, collapsed }) {
   )
 }
 
+function SubNavItem({ item, active, onNavigate }) {
+  const Icon = item.icon
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <button
+      onClick={() => onNavigate(item.id)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-all duration-150"
+      style={{
+        background: active ? 'rgba(243,146,0,0.14)' : hovered ? 'rgba(255,255,255,0.07)' : 'transparent',
+      }}
+    >
+      <Icon
+        size={13}
+        style={{ color: active ? '#f39200' : hovered ? 'rgba(255,255,255,0.80)' : 'rgba(255,255,255,0.40)' }}
+      />
+      <span
+        className="text-[13px] font-medium flex-1"
+        style={{ color: active ? '#ffffff' : hovered ? '#ffffff' : 'rgba(255,255,255,0.72)' }}
+      >
+        {item.label}
+      </span>
+      {active && (
+        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#f39200' }} />
+      )}
+    </button>
+  )
+}
+
+function NavItemGroup({ item, activePage, onNavigate, collapsed, expanded, onToggle }) {
+  const Icon = item.icon
+  const isGroupActive = item.subItems.some(s => s.id === activePage)
+  const [hovered, setHovered] = useState(false)
+
+  function getStyle() {
+    if (hovered) return { background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.12)' }
+    return { background: 'transparent', border: '1px solid transparent' }
+  }
+
+  if (collapsed) {
+    return (
+      <NavItem
+        item={{ ...item, id: item.subItems[0].id }}
+        active={isGroupActive}
+        onNavigate={onNavigate}
+        collapsed
+      />
+    )
+  }
+
+  return (
+    <div>
+      <button
+        onClick={onToggle}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150 relative"
+        style={getStyle()}
+      >
+        {isGroupActive && (
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full"
+            style={{ background: '#f39200', boxShadow: '0 0 6px rgba(243,146,0,0.7)' }} />
+        )}
+        <Icon
+          size={17}
+          className="flex-shrink-0"
+          style={{ color: isGroupActive ? '#f39200' : hovered ? 'rgba(255,255,255,0.90)' : 'rgba(255,255,255,0.55)' }}
+        />
+        <div className="flex-1 min-w-0">
+          <p className="text-[14px] font-semibold leading-tight tracking-tight"
+             style={{ color: isGroupActive ? '#ffffff' : hovered ? '#ffffff' : 'rgba(255,255,255,0.88)' }}>
+            {item.label}
+          </p>
+          <p className="text-[11px] truncate mt-0.5"
+            style={{ color: isGroupActive ? 'rgba(255,255,255,0.55)' : hovered ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.35)' }}>
+            {item.description}
+          </p>
+        </div>
+        {expanded
+          ? <ChevronDown size={12} style={{ color: 'rgba(255,255,255,0.35)', flexShrink: 0 }} />
+          : <ChevronRight size={12} style={{ color: 'rgba(255,255,255,0.35)', flexShrink: 0 }} />
+        }
+      </button>
+
+      {expanded && (
+        <div className="mt-0.5 mb-1 ml-5 pl-3 border-l" style={{ borderColor: 'rgba(255,255,255,0.12)' }}>
+          {item.subItems.map(sub => (
+            <SubNavItem
+              key={sub.id + sub.label}
+              item={sub}
+              active={activePage === sub.id}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const DP_SUB_IDS = ['depto-pessoal', 'dp-ferias']
+
 export default function Sidebar({ activePage, onNavigate, onChangePassword, collapsed, onToggle }) {
   const [logoError, setLogoError] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState(() => {
+    const set = new Set()
+    if (DP_SUB_IDS.includes(activePage)) set.add('depto-pessoal')
+    return set
+  })
   const { tasks } = useTasks()
   const { currentUser, logout } = useAuth()
   const { can } = usePermissions()
   const pendingTaskCount = tasks.filter(t => t.status !== 'concluida').length
+
+  useEffect(() => {
+    if (DP_SUB_IDS.includes(activePage)) {
+      setExpandedGroups(prev => {
+        if (prev.has('depto-pessoal')) return prev
+        const next = new Set(prev)
+        next.add('depto-pessoal')
+        return next
+      })
+    }
+  }, [activePage])
+
+  function toggleGroup(id) {
+    setExpandedGroups(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
 
   const visibleKanbans = kanbans.filter(item => can(item.id, 'view'))
   const visibleTools   = tools.filter(item => can(item.id, 'view'))
@@ -194,9 +328,21 @@ export default function Sidebar({ activePage, onNavigate, onChangePassword, coll
       <nav className="flex-1 px-2 py-3 flex flex-col overflow-y-auto scrollbar-thin gap-0.5">
         {!collapsed && visibleKanbans.length > 0 && <SectionLabel>Módulos</SectionLabel>}
         {collapsed && visibleKanbans.length > 0 && <div className="mt-2" />}
-        {visibleKanbans.map(item => (
-          <NavItem key={item.id} item={item} active={activePage === item.id} onNavigate={onNavigate} collapsed={collapsed} />
-        ))}
+        {visibleKanbans.map(item =>
+          item.subItems ? (
+            <NavItemGroup
+              key={item.id}
+              item={item}
+              activePage={activePage}
+              onNavigate={onNavigate}
+              collapsed={collapsed}
+              expanded={expandedGroups.has(item.id)}
+              onToggle={() => toggleGroup(item.id)}
+            />
+          ) : (
+            <NavItem key={item.id} item={item} active={activePage === item.id} onNavigate={onNavigate} collapsed={collapsed} />
+          )
+        )}
 
         {!collapsed && visibleTools.length > 0 && <SectionLabel>Produtividade</SectionLabel>}
         {collapsed && visibleTools.length > 0 && (
