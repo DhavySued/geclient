@@ -41,7 +41,7 @@ function ScoreBar({ score }) {
   )
 }
 
-const FiscalCard = memo(function FiscalCard({ client, index, record, onOpen, isDragDisabled = false }) {
+const FiscalCard = memo(function FiscalCard({ client, index, record, hasOwnRecord = true, onOpen, isDragDisabled = false }) {
   const { fiscalItems }                            = useFiscalItemsCtx()
   const { regimeItems, conditionItems, tipoItems } = useFiscalConfig()
 
@@ -49,6 +49,21 @@ const FiscalCard = memo(function FiscalCard({ client, index, record, onOpen, isD
   const fiscalScore     = applicableItems.length > 0
     ? calcFiscalScore(record?.checks ?? {}, applicableItems)
     : null
+
+  const totalItems   = applicableItems.length
+  const checkedCount = applicableItems.filter(i => record?.checks?.[i.id] != null).length
+
+  const completionState = (!hasOwnRecord || totalItems === 0) ? null
+    : checkedCount === totalItems ? 'complete'
+    : checkedCount === 0         ? 'none'
+    :                              'partial'
+
+  const COMPLETION = {
+    complete: { bg: 'rgba(16,185,129,0.09)',   dotBg: 'rgba(16,185,129,0.15)',  dot: '#10B981', text: '#059669', label: 'Concluído'    },
+    partial:  { bg: 'rgba(243,146,0,0.08)',    dotBg: 'rgba(243,146,0,0.14)',   dot: '#f39200', text: '#c97700', label: 'Em andamento'  },
+    none:     { bg: 'rgba(107,114,128,0.04)',  dotBg: 'rgba(107,114,128,0.10)', dot: '#9CA3AF', text: '#6B7280', label: 'Não iniciado'  },
+  }
+  const cs = completionState ? COMPLETION[completionState] : null
 
   const status = record?.status ?? client.fiscalStatus ?? 'sem_consulta'
   const accent = STATUS_ACCENT[status] ?? DEFAULT_ACCENT
@@ -88,7 +103,9 @@ const FiscalCard = memo(function FiscalCard({ client, index, record, onOpen, isD
             onClick={() => { if (!snapshot.isDragging) onOpen?.(client) }}
             className="rounded-2xl p-4"
             style={{
-              background:  `linear-gradient(135deg, ${accent.glow} 0%, #ffffff 60%)`,
+              background:  cs
+                ? `linear-gradient(135deg, ${cs.bg} 0%, #ffffff 60%)`
+                : `linear-gradient(135deg, ${accent.glow} 0%, #ffffff 60%)`,
               border:      `1px solid rgba(0,0,0,0.08)`,
               borderLeft:  `3px solid ${accent.border}`,
               boxShadow:   snapshot.isDragging
@@ -133,7 +150,24 @@ const FiscalCard = memo(function FiscalCard({ client, index, record, onOpen, isD
             <ScoreBar score={fiscalScore} />
 
             {/* Footer */}
-            <div className="flex items-center justify-end mt-3">
+            <div className="flex items-center justify-between mt-3">
+              {!hasOwnRecord ? (
+                <span
+                  className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                  style={{ background: 'rgba(243,146,0,0.10)', color: '#c97700', border: '1px solid rgba(243,146,0,0.22)' }}
+                  title="Sem registro salvo para este mês — exibindo status herdado"
+                >
+                  Sem reg.
+                </span>
+              ) : cs ? (
+                <span
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold"
+                  style={{ background: cs.dotBg, color: cs.text }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cs.dot }} />
+                  {cs.label}
+                </span>
+              ) : <span />}
               <div className="flex items-center gap-1" title={dateLabel} style={{ color: '#9CA3AF' }}>
                 <Clock size={10} />
                 <span className="text-[11px]">{displayDate}</span>

@@ -85,7 +85,8 @@ export default function FiscalPage({ onOpenClient }) {
   const [tipoFilter, setTipoFilter]     = useState('all')
   const [nameSearch, setNameSearch]     = useState('')
   const [sortAlpha, setSortAlpha]       = useState(false)
-  const [exclusaoFilter, setExclusaoFilter] = useState(false)
+  const [exclusaoFilter, setExclusaoFilter]       = useState(false)
+  const [completionFilter, setCompletionFilter]   = useState('all')
   const [showSettings, setShowSettings] = useState(false)
   const [showPresentation, setShowPresentation] = useState(false)
   const { can } = usePermissions()
@@ -204,6 +205,17 @@ export default function FiscalPage({ onOpenClient }) {
     })
   }, [kanbanColumns, recordsLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Completion state helper ───────────────────────────────────────────────
+  function getClientCompletionState(client) {
+    const ownRecord  = getRecord(client.id, selectedMonth)
+    const applicable = getApplicableItems(client, fiscalItems, regimeItems, conditionItems, tipoItems)
+    if (!ownRecord || applicable.length === 0) return 'no_record'
+    const checkedCount = applicable.filter(i => ownRecord.checks?.[i.id] != null).length
+    if (checkedCount === applicable.length) return 'complete'
+    if (checkedCount === 0) return 'no_record'
+    return 'partial'
+  }
+
   // ── Score helper ──────────────────────────────────────────────────────────
   function getClientScore(clientId) {
     const client = clientMap[clientId]
@@ -247,6 +259,7 @@ export default function FiscalPage({ onOpenClient }) {
       ?? (kanbanColumns[colId]?.clients ?? []).map(c => c.id)
     let clients = ids.map(id => clientMap[id]).filter(Boolean)
     if (exclusaoFilter) clients = clients.filter(c => c.emExclusaoSimples)
+    if (completionFilter !== 'all') clients = clients.filter(c => getClientCompletionState(c) === completionFilter)
     return sortAlpha
       ? [...clients].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }))
       : clients
@@ -422,6 +435,38 @@ export default function FiscalPage({ onOpenClient }) {
           ))}
         </div>
 
+        <div className="w-px h-5 bg-gray-200 flex-shrink-0" />
+
+        {/* Conclusão */}
+        <div className="flex items-center gap-1">
+          {[
+            { value: 'all',       label: 'Conclusão',    dot: null,      active: { bg: 'rgba(0,0,0,0.06)',           border: 'rgba(0,0,0,0.12)',          color: '#374151' } },
+            { value: 'no_record', label: 'Sem Reg.',     dot: '#9CA3AF', active: { bg: 'rgba(107,114,128,0.12)',     border: 'rgba(107,114,128,0.30)',     color: '#6B7280' } },
+            { value: 'partial',   label: 'Em Andamento', dot: '#f39200', active: { bg: 'rgba(243,146,0,0.12)',       border: 'rgba(243,146,0,0.30)',       color: '#c97700' } },
+            { value: 'complete',  label: 'Concluído',    dot: '#10B981', active: { bg: 'rgba(16,185,129,0.12)',      border: 'rgba(16,185,129,0.30)',      color: '#059669' } },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setCompletionFilter(opt.value)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all"
+              style={completionFilter === opt.value ? {
+                background: opt.active.bg,
+                border: `1px solid ${opt.active.border}`,
+                color: opt.active.color,
+              } : {
+                background: 'rgba(0,0,0,0.03)',
+                border: '1px solid rgba(0,0,0,0.08)',
+                color: '#6B7280',
+              }}
+            >
+              {opt.dot && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: completionFilter === opt.value ? opt.dot : '#9CA3AF' }} />}
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="w-px h-5 bg-gray-200 flex-shrink-0" />
+
         {/* Filtro exclusão do Simples */}
         <button
           onClick={() => setExclusaoFilter(v => !v)}
@@ -442,9 +487,9 @@ export default function FiscalPage({ onOpenClient }) {
         </button>
 
         {/* Limpar filtros — aparece só quando algum está ativo */}
-        {(regimeFilter !== 'all' || tipoFilter !== 'all' || nameSearch || exclusaoFilter) && (
+        {(regimeFilter !== 'all' || tipoFilter !== 'all' || nameSearch || exclusaoFilter || completionFilter !== 'all') && (
           <button
-            onClick={() => { setRegimeFilter('all'); setTipoFilter('all'); setNameSearch(''); setExclusaoFilter(false) }}
+            onClick={() => { setRegimeFilter('all'); setTipoFilter('all'); setNameSearch(''); setExclusaoFilter(false); setCompletionFilter('all') }}
             className="ml-1 flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] transition-all"
             style={{ color: '#9CA3AF', border: '1px solid rgba(0,0,0,0.08)' }}
           >
@@ -511,6 +556,7 @@ export default function FiscalPage({ onOpenClient }) {
                         client={client}
                         index={index}
                         record={getEffectiveRecord(client.id, selectedMonth)}
+                        hasOwnRecord={!!getRecord(client.id, selectedMonth)}
                         onOpen={c => onOpenClient(c, selectedMonth)}
                         isDragDisabled={sortAlpha}
                       />

@@ -138,36 +138,38 @@ function ScoreTooltip() {
 
 function AnalysisTab({ client, selectedMonth }) {
   const { updateClient }                           = useClients()
-  const { getRecord, upsertRecord }                = useFiscalRecords()
+  const { getRecord, getEffectiveRecord, upsertRecord } = useFiscalRecords()
   const { fiscalItems }                            = useFiscalItemsCtx()
   const { regimeItems, conditionItems, tipoItems } = useFiscalConfig()
   const applicableItems = getApplicableItems(client, fiscalItems, regimeItems, conditionItems, tipoItems)
 
-  const activeMonth   = selectedMonth ?? new Date().toISOString().slice(0, 7)
-  const record        = getRecord(client.id, activeMonth)
-  const savedChecks   = record?.checks ?? {}
+  const activeMonth     = selectedMonth ?? new Date().toISOString().slice(0, 7)
+  const ownRecord       = getRecord(client.id, activeMonth)          // registro real deste mês
+  const effectiveRecord = getEffectiveRecord(client.id, activeMonth) // pode ser herdado
+  const isInherited     = !ownRecord && !!effectiveRecord            // exibindo dados de mês anterior
+
+  const savedChecks    = ownRecord?.checks ?? {}                    // o que está salvo para este mês
+  const effectiveChecks = effectiveRecord?.checks ?? {}             // o que exibimos (pode ser herdado)
 
   // Draft local — só persiste ao clicar em Salvar
-  const [draft,      setDraft]      = useState(() => ({ ...savedChecks }))
-  const [note,       setNote]       = useState(record?.note ?? '')
+  const [draft,      setDraft]      = useState(() => ({ ...effectiveChecks }))
+  const [note,       setNote]       = useState(effectiveRecord?.note ?? '')
   const [saving,     setSaving]     = useState(false)
   const [savingNote, setSavingNote] = useState(false)
 
   // Sincroniza draft quando o registro externo muda (ex: outro usuário ou tab)
   const savedKey = JSON.stringify(savedChecks)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useState(() => { setDraft({ ...savedChecks }) }, [savedKey])
+  useState(() => { setDraft({ ...effectiveChecks }) }, [savedKey])
 
-  // Sincroniza note quando o registro externo muda
-  useEffect(() => { setNote(record?.note ?? '') }, [record?.note]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Sincroniza note quando o registro real deste mês muda
+  useEffect(() => { setNote((ownRecord ?? effectiveRecord)?.note ?? '') }, [ownRecord?.note]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isDirty      = JSON.stringify(draft) !== JSON.stringify(savedChecks)
-  const allMarked    = applicableItems.length > 0 &&
-    applicableItems.every(i => draft[i.id] === 'ok' || draft[i.id] === 'pendente')
-  const canSave      = isDirty && allMarked
+  const isDirty = JSON.stringify(draft) !== JSON.stringify(savedChecks)
+  const canSave = isDirty
 
   const previewScore = applicableItems.length > 0 ? calcFiscalScore(draft, applicableItems) ?? 0 : 0
-  const displayScore = isDirty ? previewScore : (calcFiscalScore(savedChecks, applicableItems) ?? 0)
+  const displayScore = isDirty ? previewScore : (calcFiscalScore(effectiveChecks, applicableItems) ?? 0)
 
   const scoreTextColor =
     displayScore >= 80 ? 'text-emerald-400' :
@@ -183,7 +185,7 @@ function AnalysisTab({ client, selectedMonth }) {
   }
 
   function handleCancel() {
-    setDraft({ ...savedChecks })
+    setDraft({ ...effectiveChecks })
   }
 
   async function handleMarkAllOk() {
@@ -191,12 +193,12 @@ function AnalysisTab({ client, selectedMonth }) {
     try {
       const allOk = Object.fromEntries(applicableItems.map(i => [i.id, 'ok']))
       setDraft(allOk)
-      const currentStatus = record?.status ?? client.fiscalStatus ?? 'sem_consulta'
+      const currentStatus = (ownRecord ?? effectiveRecord)?.status ?? client.fiscalStatus ?? 'sem_consulta'
       const newStatus = currentStatus === 'sem_consulta' ? 'sem_pendencia' : currentStatus
       await upsertRecord(client.id, activeMonth, {
         status:       newStatus,
         checks:       allOk,
-        pendingTaxes: record?.pendingTaxes ?? client.pendingTaxes ?? [],
+        pendingTaxes: (ownRecord ?? effectiveRecord)?.pendingTaxes ?? client.pendingTaxes ?? [],
         note,
       })
       updateClient(client.id, { scoreFiscal: 100, fiscalStatus: newStatus })
@@ -208,14 +210,14 @@ function AnalysisTab({ client, selectedMonth }) {
   async function handleSave() {
     setSaving(true)
     try {
-      const currentStatus = record?.status ?? client.fiscalStatus ?? 'sem_consulta'
+      const currentStatus = (ownRecord ?? effectiveRecord)?.status ?? client.fiscalStatus ?? 'sem_consulta'
       const newStatus = (previewScore === 100 && currentStatus === 'sem_consulta')
         ? 'sem_pendencia'
         : currentStatus
       await upsertRecord(client.id, activeMonth, {
         status:       newStatus,
         checks:       draft,
-        pendingTaxes: record?.pendingTaxes ?? client.pendingTaxes ?? [],
+        pendingTaxes: (ownRecord ?? effectiveRecord)?.pendingTaxes ?? client.pendingTaxes ?? [],
         note,
       })
       updateClient(client.id, { scoreFiscal: previewScore, fiscalStatus: newStatus })
@@ -228,9 +230,9 @@ function AnalysisTab({ client, selectedMonth }) {
     setSavingNote(true)
     try {
       await upsertRecord(client.id, activeMonth, {
-        status:       record?.status       ?? client.fiscalStatus ?? 'sem_consulta',
+        status:       (ownRecord ?? effectiveRecord)?.status ?? client.fiscalStatus ?? 'sem_consulta',
         checks:       savedChecks,
-        pendingTaxes: record?.pendingTaxes ?? client.pendingTaxes ?? [],
+        pendingTaxes: (ownRecord ?? effectiveRecord)?.pendingTaxes ?? client.pendingTaxes ?? [],
         note,
       })
     } finally {
@@ -295,6 +297,15 @@ function AnalysisTab({ client, selectedMonth }) {
           </div>
         )}
       </div>
+
+      {/* Aviso — dados herdados do mês anterior */}
+      {isInherited && (
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs"
+          style={{ background: 'rgba(243,146,0,0.06)', borderColor: 'rgba(243,146,0,0.22)', color: '#c97700' }}>
+          <History size={13} style={{ flexShrink: 0 }} />
+          <span>Exibindo dados herdados do mês anterior. Nenhum registro salvo para este mês ainda.</span>
+        </div>
+      )}
 
       {/* Score Fiscal em destaque */}
       <div className="bg-gray-100/60 rounded-xl p-4 border border-gray-200/50">
@@ -398,14 +409,10 @@ function AnalysisTab({ client, selectedMonth }) {
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={!canSave || saving}
-                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
-                  canSave && !saving
-                    ? 'bg-brand-500 hover:bg-brand-400 text-gray-900'
-                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                }`}
+                disabled={saving}
+                className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all bg-brand-500 hover:bg-brand-400 disabled:opacity-50 text-gray-900"
               >
-                {saving ? 'Salvando…' : canSave ? 'Salvar' : `Marque todos os itens (${unmarkedCount} restante${unmarkedCount > 1 ? 's' : ''})`}
+                {saving ? 'Salvando…' : 'Salvar'}
               </button>
               <button
                 type="button"
@@ -433,7 +440,7 @@ function AnalysisTab({ client, selectedMonth }) {
           placeholder="Adicione observações sobre este mês..."
           className="w-full bg-gray-100/60 border border-gray-200/50 rounded-xl px-4 py-3 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-brand-500/50 resize-none"
         />
-        {note !== (record?.note ?? '') && (
+        {note !== ((ownRecord ?? effectiveRecord)?.note ?? '') && (
           <div className="flex justify-end mt-2">
             <button
               type="button"
