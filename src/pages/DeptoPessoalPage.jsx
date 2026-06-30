@@ -87,7 +87,7 @@ export default function DeptoPessoalPage() {
     })
   }
 
-  const activeColFilters = Object.entries(colFilters).filter(([, v]) => v.feito !== v.pendente)
+  const activeColFilters = Object.entries(colFilters).filter(([, v]) => v.feito || v.pendente)
 
   function toggleStatusFilter(key) {
     setStatusFilters(prev => {
@@ -115,11 +115,12 @@ export default function DeptoPessoalPage() {
       )
     }
     for (const [key, { feito, pendente }] of Object.entries(colFilters)) {
-      if (feito === pendente) continue // ambos ou nenhum = sem filtro efetivo
+      if (!feito && !pendente) continue // nenhum marcado = sem filtro
       list = list.filter(c => {
         const svc     = getServicesForMonth(c, yearMonth)
         const service = DP_SERVICES.find(s => s.key === key)
         if (!service || !isConfigured(svc, service)) return false
+        if (feito && pendente) return true // ambos marcados = tem o serviço configurado
         const rec  = getRecord(c.id, yearMonth) ?? {}
         const done = rec[key] === true
         return feito ? done : !done
